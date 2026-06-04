@@ -1,0 +1,117 @@
+/* =========================================================================
+   Pastel Bunny  -  KakaoTalk iOS theme
+   -------------------------------------------------------------------------
+   Sender bubble : pink bunny  (chatBubbleSent)
+   Receiver      : mint bunny  (chatBubbleReceived)
+
+   KakaoTalk iOS themes are a .ktheme package = a ZIP that contains this
+   file (KakaoTalk.css, fixed name) at the root plus an Images/ folder.
+   Styling uses Kakao's custom -ios-* CSS properties.
+
+   NOTE: Kakao's full selector spec ships in their official PDF theme guide
+   (linked in README). The selectors below cover the common surfaces; if a
+   future KakaoTalk build renames a class, adjust the selector name only --
+   the colors/images stay the same.
+   ========================================================================= */
+
+/* ---- Theme manifest ---------------------------------------------------- */
+ManifestStyle {
+    -ios-theme-name: "Pastel Bunny";
+    -ios-theme-version: "1.0.0";
+    -ios-theme-author: "jenna-studio";
+    -ios-theme-url: "https://github.com/jenna-studio/kakaotalk-theme";
+}
+
+/* ---- Global background / text ------------------------------------------ */
+BodyStyle {
+    -ios-background-color: #FFF4FA;
+    -ios-text-color: #5C4A54;
+}
+
+/* ---- Navigation bar ---------------------------------------------------- */
+NavigationBarStyle1 {
+    -ios-background-color: #FFD1E2;
+    -ios-title-text-color: #5C4A54;
+    -ios-button-text-color: #5C4A54;
+}
+
+NavigationBarButtonStyle {
+    -ios-text-color: #5C4A54;
+    -ios-text-alpha: 1.0;
+}
+
+/* ---- Friends list ------------------------------------------------------ */
+FriendsViewStyle {
+    -ios-background-image: url(Images/bg_friends.png);
+    -ios-background-color: #FFFAFD;
+}
+
+FriendsCellStyle {
+    -ios-background-color: transparent;
+    -ios-text-color: #5C4A54;
+    -ios-sub-text-color: #A98C99;
+}
+
+FriendsCellStyle:selected {
+    -ios-background-color: #FFE3EE;
+}
+
+/* ---- Chats list -------------------------------------------------------- */
+ChatsViewStyle {
+    -ios-background-image: url(Images/bg_chats.png);
+    -ios-background-color: #F7FBFF;
+}
+
+ChatsCellStyle {
+    -ios-background-color: transparent;
+    -ios-text-color: #5C4A54;
+    -ios-sub-text-color: #A98C99;
+    -ios-badge-background-color: #FF9EC0;
+    -ios-badge-text-color: #FFFFFF;
+}
+
+ChatsCellStyle:selected {
+    -ios-background-color: #E3F6EF;
+}
+
+/* ---- Chat room (the conversation screen) ------------------------------- */
+ChatRoomViewStyle {
+    -ios-background-image: url(Images/bg_chatroom.png);
+    -ios-background-color: #FFF4FA;
+}
+
+/* ---- Chat bubbles ------------------------------------------------------ */
+/* Sender = pink bunny. The cap-insets keep the ears/corners from stretching
+   while the middle of the body stretches to fit the message text.
+   Insets are rect(top, left, bottom, right) in @1x points.            */
+SentMessageStyle {
+    -ios-background-image: url(Images/chatBubbleSent.png);
+    -ios-background-image-cap-insets: rect(46, 18, 22, 18);
+    -ios-text-color: #5C4A54;
+    -ios-link-text-color: #E06A9A;
+    -ios-time-text-color: #B79AA6;
+}
+
+/* Receiver = mint bunny */
+ReceivedMessageStyle {
+    -ios-background-image: url(Images/chatBubbleReceived.png);
+    -ios-background-image-cap-insets: rect(46, 18, 22, 18);
+    -ios-text-color: #41544C;
+    -ios-link-text-color: #2FA585;
+    -ios-time-text-color: #93A89F;
+}
+
+/* ---- Chat input bar ---------------------------------------------------- */
+ChatRoomInputBarStyle {
+    -ios-background-color: #FFE9F2;
+    -ios-text-color: #5C4A54;
+    -ios-placeholder-text-color: #C2A8B4;
+    -ios-send-button-text-color: #FF7FAE;
+}
+
+/* ---- Tab bar ----------------------------------------------------------- */
+TabBarStyle {
+    -ios-background-color: #FFD1E2;
+    -ios-text-color: #B98DA0;
+    -ios-selected-text-color: #FF6FA3;
+}
