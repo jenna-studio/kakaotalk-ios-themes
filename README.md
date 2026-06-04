@@ -7,14 +7,10 @@ with two short ears:
 - **Sender bubble → pink bunny** 🩷
 - **Receiver bubble → mint bunny** 🌿
 
-![pages](preview/pages.png)
-
 *Friends list · Chatroom · Passcode — rendered from the actual generated assets.*
 
 The ears sit in the bubble's top corners, which fall inside the 9-slice
-stretch cap, so they never distort when KakaoTalk resizes a bubble:
-
-![stretch](preview/verify_stretch.png)
+stretch cap, so they never distort when KakaoTalk resizes a bubble
 
 ---
 
