@@ -14,6 +14,7 @@ spec). Instead it reports facts and self-consistency problems we can verify:
 Usage:  python3 scripts/analyze_theme.py dist/PastelBunny.ktheme
 """
 
+import os
 import sys
 import re
 import zipfile
@@ -57,16 +58,26 @@ def main(path):
     if len(colors) > 20:
         warnings.append(f"{len(colors)} colors (over 20) -- harder to maintain")
 
-    # 4) referenced images exist?
-    refs = sorted(set(re.findall(r"url\(\s*([^)]+?)\s*\)", css)))
+    # 4) referenced images exist?  (KakaoTalk uses bare quoted 'name.png',
+    #    resolved under Images/. Also accept legacy url(...) refs.)
+    refs = set(re.findall(r"url\(\s*([^)]+?)\s*\)", css))
+    refs |= {m for m in re.findall(r"'([^']+?\.png)'", css)}
+    refs = sorted(refs)
     pkg = set(names)
     print(f"\nImages referenced by CSS: {len(refs)}")
     for r in refs:
-        ok = r in pkg
+        base = os.path.basename(r)
+        stem = base[:-4] if base.lower().endswith(".png") else base
+        # a bare 'name.png' is satisfied by name.png / name@2x.png / name@3x.png
+        cand = set()
+        for nm in (base, f"{stem}@2x.png", f"{stem}@3x.png"):
+            cand |= {nm, f"Images/{nm}"}
+        ok = bool(cand & pkg)
         mark = "OK " if ok else "MISSING"
         print(f"    [{mark}] {r}")
         if not ok:
-            issues.append(f"CSS references '{r}' but it is not in the package")
+            warnings.append(f"CSS references '{r}' but it is not in the package "
+                            f"(KakaoTalk falls back to its default for missing assets)")
 
     # 5) retina coverage for every packaged image
     imgs = [n for n in names if n.lower().endswith(".png")]

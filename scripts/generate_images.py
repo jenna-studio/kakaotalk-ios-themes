@@ -1,407 +1,378 @@
 #!/usr/bin/env python3
 """
-Generate PNG assets for the "Pastel Bunny" KakaoTalk iOS theme.
+Generate every PNG asset for the "Pastel Bunny" KakaoTalk iOS theme,
+following the official KakaoTalk 8.0.0 iOS Theme User Guide and matching
+the asset names/sizes of a known-working theme.
 
-Everything is drawn at @3x and downscaled to @2x / @1x so the Retina
-variants stay crisp. The headline assets are the two-eared bunny chat
-bubbles: pink for the sender, mint for the receiver.
+Conventions from the guide:
+  * Images are 2x-based:  name.png == name@2x.png (2x px),  name@3x.png (3x px)
+  * Insets/caps in the CSS are 1x-based
+  * Chat bubbles are 9-slice stretched with a `20px 20px` cap (1x). The two
+    short bunny ears are placed in the bubble's TOP CORNERS, inside that cap,
+    so they never distort when KakaoTalk stretches the bubble.
 
-Run:  python3 scripts/generate_images.py
-Output: theme/Images/*.png  and  preview/preview.png
+Run: python3 scripts/generate_images.py
 """
 
 import os
-from PIL import Image, ImageDraw, ImageFilter, ImageFont
+from PIL import Image, ImageDraw, ImageFont
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-IMG_DIR = os.path.join(ROOT, "theme", "Images")
-PREVIEW_DIR = os.path.join(ROOT, "preview")
-os.makedirs(IMG_DIR, exist_ok=True)
-os.makedirs(PREVIEW_DIR, exist_ok=True)
+IMG = os.path.join(ROOT, "theme", "Images")
+PREV = os.path.join(ROOT, "preview")
+os.makedirs(IMG, exist_ok=True)
+os.makedirs(PREV, exist_ok=True)
 
-# Supersampling factor for smooth anti-aliased edges.
-SS = 4
+DS = 12  # internal draw units per 1x point (downscaled later -> crisp)
 
-# ---- Pastel palette -------------------------------------------------------
-PINK        = (255, 194, 219)   # sender bubble
-PINK_EAR_IN = (255, 169, 200)   # sender inner ear
-PINK_LINE   = (238, 158, 188)   # sender outline
-
-MINT        = (185, 233, 214)   # receiver bubble
-MINT_EAR_IN = (151, 214, 190)   # receiver inner ear
-MINT_LINE   = (150, 210, 184)   # receiver outline
-
-BG_TOP      = (255, 244, 250)   # chatroom gradient top (soft pink)
-BG_BOT      = (235, 246, 255)   # chatroom gradient bottom (soft sky)
-LIST_TOP    = (255, 250, 253)
-LIST_BOT    = (245, 250, 255)
-
-TEXT_DARK   = (92, 74, 84)
-WHITE       = (255, 255, 255)
+# ---- pastel palette -------------------------------------------------------
+PINK      = (255, 194, 219)
+PINK_EAR  = (255, 167, 198)
+PINK_LINE = (234, 146, 180)
+MINT      = (184, 233, 214)
+MINT_EAR  = (149, 212, 188)
+MINT_LINE = (144, 201, 176)
+BG_TOP    = (255, 244, 250)
+BG_BOT    = (234, 246, 255)
+PASS_TOP  = (255, 240, 248)
+PASS_BOT  = (240, 248, 255)
+TEXT_DARK = (92, 74, 84)
+MUTED     = (190, 150, 168)
+ACCENT    = (255, 111, 163)
 
 
-# ---- helpers --------------------------------------------------------------
-def rounded(draw, box, radius, fill=None, outline=None, width=1):
-    draw.rounded_rectangle(box, radius=radius, fill=fill, outline=outline, width=width)
+def darken(c, f=0.86):
+    return tuple(max(0, int(v * f)) for v in c)
 
 
-def ear(size, color, inner, line):
-    """Return an RGBA image of a single short bunny ear (vertical)."""
-    w, h = size
-    im = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+def save_img(img, path):
+    img.save(os.path.join(IMG, path))
+
+
+# ===========================================================================
+# Chat bubbles (1x = 52 x 54 ; ears in top corners inside the 20px cap)
+# ===========================================================================
+BUB_W, BUB_H = 52, 54  # 1x points
+
+def _bubble_master(fill, ear, line):
+    """Draw bunny bubble at DS resolution, return RGBA (DS*1x)."""
+    W, H = BUB_W * DS, BUB_H * DS
+    im = Image.new("RGBA", (W, H), (0, 0, 0, 0))
     d = ImageDraw.Draw(im)
-    d.ellipse([0, 0, w - 1, h - 1], fill=color, outline=line, width=max(2, w // 18))
-    # inner ear
-    iw, ih = int(w * 0.46), int(h * 0.6)
-    ix, iy = (w - iw) // 2, int(h * 0.22)
-    d.ellipse([ix, iy, ix + iw, iy + ih], fill=inner)
+    lw = max(2, int(1.6 * DS))
+
+    def ear_at(cx):
+        ew, eh = 13 * DS, 18 * DS          # SHORT ears
+        e = Image.new("RGBA", (ew, eh), (0, 0, 0, 0))
+        ed = ImageDraw.Draw(e)
+        ed.ellipse([0, 0, ew - 1, eh - 1], fill=fill, outline=line, width=lw)
+        iw, ih = int(ew * 0.48), int(eh * 0.58)
+        ed.ellipse([(ew - iw) // 2, int(eh * 0.24),
+                    (ew - iw) // 2 + iw, int(eh * 0.24) + ih], fill=ear)
+        im.alpha_composite(e, (int(cx * DS - ew / 2), 0))
+
+    ear_at(12)   # left  (within 20px cap)
+    ear_at(40)   # right (within 20px cap)
+
+    body = [2 * DS, 12 * DS, W - 2 * DS, H - 2 * DS]
+    r = 15 * DS
+    d.rounded_rectangle(body, radius=r, fill=fill, outline=line, width=lw)
+    d.rounded_rectangle([body[0] + lw, 12 * DS + lw, body[2] - lw, body[3] - lw],
+                        radius=r, fill=fill)
     return im
 
 
-def bunny_bubble(fill, inner, line, tail="left"):
-    """
-    Draw a chat bubble shaped like a bunny head: a rounded-rectangle body
-    with two short ears on top and a small tail nub on `tail` side.
-    Drawn at @3x logical size (supersampled internally).
-    Returns an RGBA PIL image.
-    """
-    # @3x logical canvas
-    W, H = 300, 200
-    cw, ch = W * SS, H * SS
-    im = Image.new("RGBA", (cw, ch), (0, 0, 0, 0))
-    d = ImageDraw.Draw(im)
-    lw = 3 * SS  # outline width
-
-    body_top = int(58 * SS)           # leave headroom for ears
-    body = [int(10 * SS), body_top, int(290 * SS), int(190 * SS)]
-    radius = int(46 * SS)
-
-    # --- ears (drawn first so the body overlaps their base) ---
-    ear_w, ear_h = int(56 * SS), int(78 * SS)
-    e = ear((ear_w, ear_h), fill, inner, line)
-    # left ear, tilted slightly out
-    le = e.rotate(16, expand=True, resample=Image.BICUBIC)
-    re = e.transpose(Image.FLIP_LEFT_RIGHT).rotate(-16, expand=True, resample=Image.BICUBIC)
-    cx = (body[0] + body[2]) // 2
-    gap = int(20 * SS)
-    im.alpha_composite(le, (cx - le.width - gap // 2 + int(6 * SS), int(6 * SS)))
-    im.alpha_composite(re, (cx + gap // 2 - int(6 * SS), int(6 * SS)))
-
-    # --- tail nub ---
-    nub = int(26 * SS)
-    if tail == "left":
-        nx = body[0] - int(8 * SS)
-    else:
-        nx = body[2] - nub + int(8 * SS)
-    ny = body[3] - int(40 * SS)
-    d.ellipse([nx, ny, nx + nub, ny + nub], fill=fill, outline=line, width=lw)
-
-    # --- body (covers ear bases & nub seam) ---
-    rounded(d, body, radius, fill=fill, outline=line, width=lw)
-    # re-fill interior to hide overlapping outlines from ears/nub
-    rounded(d, [body[0] + lw, body_top + lw, body[2] - lw, body[3] - lw],
-            radius, fill=fill)
-
-    # downscale to @3x
-    out = im.resize((W, H), Image.LANCZOS)
-    return out
+def write_bubble(prefix, fill, ear, line):
+    """Write 01/02 (+Selected), each as name.png(2x), @2x(2x), @3x(3x)."""
+    normal = _bubble_master(fill, ear, line)
+    sel = _bubble_master(darken(fill), darken(ear), darken(line))
+    two = (BUB_W * 2, BUB_H * 2)
+    three = (BUB_W * 3, BUB_H * 3)
+    for variant in ("01", "02"):                     # 01 and 02 share art
+        n2 = normal.resize(two, Image.LANCZOS)
+        n3 = normal.resize(three, Image.LANCZOS)
+        s2 = sel.resize(two, Image.LANCZOS)
+        s3 = sel.resize(three, Image.LANCZOS)
+        save_img(n2, f"{prefix}{variant}.png")
+        save_img(n2, f"{prefix}{variant}@2x.png")
+        save_img(n3, f"{prefix}{variant}@3x.png")
+        save_img(s2, f"{prefix}{variant}Selected.png")
+        save_img(s2, f"{prefix}{variant}Selected@2x.png")
+        save_img(s3, f"{prefix}{variant}Selected@3x.png")
 
 
-def gradient(size, top, bottom):
+print("bubbles...")
+write_bubble("chatroomBubbleSend", PINK, PINK_EAR, PINK_LINE)
+write_bubble("chatroomBubbleReceive", MINT, MINT_EAR, MINT_LINE)
+
+
+# ===========================================================================
+# Backgrounds & patterns
+# ===========================================================================
+def gradient(size, top, bot):
     w, h = size
-    base = Image.new("RGB", (1, h))
+    col = Image.new("RGB", (1, h))
     for y in range(h):
         t = y / max(1, h - 1)
-        r = int(top[0] + (bottom[0] - top[0]) * t)
-        g = int(top[1] + (bottom[1] - top[1]) * t)
-        b = int(top[2] + (bottom[2] - top[2]) * t)
-        base.putpixel((0, y), (r, g, b))
-    return base.resize((w, h))
+        col.putpixel((0, y), tuple(int(top[i] + (bot[i] - top[i]) * t) for i in range(3)))
+    return col.resize((w, h))
 
 
-def _motif_bunny(d, x, y, s, c):
-    d.ellipse([x - s, y - s, x + s, y + s], fill=c)                       # face
-    for sx in (-1, 1):                                                     # ears
-        d.ellipse([x + sx * int(s * 0.5) - int(s * 0.28), y - int(s * 1.9),
-                   x + sx * int(s * 0.5) + int(s * 0.28), y - int(s * 0.4)], fill=c)
+def _bunny(d, x, y, s, c):
+    d.ellipse([x - s, y - s, x + s, y + s], fill=c)
+    for sx in (-1, 1):
+        d.ellipse([x + sx * s // 2 - s // 4, y - 2 * s,
+                   x + sx * s // 2 + s // 4, y - s // 2], fill=c)
 
 
-def _motif_heart(d, x, y, s, c):
+def _heart(d, x, y, s, c):
     d.ellipse([x - s, y - s, x, y], fill=c)
     d.ellipse([x, y - s, x + s, y], fill=c)
-    d.polygon([(x - s, y - int(s * 0.35)), (x + s, y - int(s * 0.35)),
-               (x, y + s)], fill=c)
+    d.polygon([(x - s, y - s // 3), (x + s, y - s // 3), (x, y + s)], fill=c)
 
 
-def _motif_carrot(d, x, y, s, c, leaf):
-    d.polygon([(x, y + int(s * 1.6)), (x - int(s * 0.6), y - int(s * 0.4)),
-               (x + int(s * 0.6), y - int(s * 0.4))], fill=c)             # body
-    for off in (-0.4, 0, 0.4):                                            # leaves
-        d.ellipse([x + int(off * s) - int(s * 0.18), y - int(s * 1.1),
-                   x + int(off * s) + int(s * 0.18), y - int(s * 0.2)], fill=leaf)
+def _carrot(d, x, y, s, cc, lc):
+    d.polygon([(x, y + 2 * s), (x - s, y - s // 2), (x + s, y - s // 2)], fill=cc)
+    for o in (-0.4, 0, 0.4):
+        d.ellipse([x + int(o * s) - s // 5, y - s, x + int(o * s) + s // 5, y], fill=lc)
 
 
-def cute_pattern(img, density=70):
-    """Scatter faint bunnies, hearts and carrots across the background."""
+def pattern_bg(size, density, top=BG_TOP, bot=BG_BOT, seed=11):
     import random
-    random.seed(11)
-    w, h = img.size
+    random.seed(seed)
+    img = gradient(size, top, bot).convert("RGBA")
+    w, h = size
     layer = Image.new("RGBA", (w, h), (0, 0, 0, 0))
     d = ImageDraw.Draw(layer)
-    palette = [(255, 170, 200), (255, 150, 185), (170, 215, 255), (180, 230, 205)]
+    pal = [(255, 170, 200), (255, 150, 185), (170, 215, 255), (180, 230, 205)]
     for _ in range(density):
-        x = random.randint(0, w)
-        y = random.randint(0, h)
-        s = random.randint(w // 70, w // 40)
+        x, y = random.randint(0, w), random.randint(0, h)
+        s = random.randint(max(6, w // 70), max(10, w // 38))
         a = random.randint(26, 52)
-        base = random.choice(palette)
-        c = base + (a,)
-        kind = random.random()
-        if kind < 0.45:
-            _motif_bunny(d, x, y, s, c)
-        elif kind < 0.8:
-            _motif_heart(d, x, y, int(s * 1.1), c)
+        k = random.random()
+        if k < 0.45:
+            _bunny(d, x, y, s, random.choice(pal) + (a,))
+        elif k < 0.8:
+            _heart(d, x, y, int(s * 1.1), random.choice(pal) + (a,))
         else:
-            _motif_carrot(d, x, y, s, (255, 165, 110, a), (170, 220, 160, a))
-    img = img.convert("RGBA")
+            _carrot(d, x, y, s, (255, 165, 110, a), (170, 220, 160, a))
     return Image.alpha_composite(img, layer).convert("RGB")
 
 
-# ---- tab bar icons --------------------------------------------------------
-TAB_OFF = (185, 141, 160)   # normal (muted mauve)
-TAB_ON  = (255, 111, 163)   # selected (pink)
+print("backgrounds...")
+chat = pattern_bg((846, 1503), 150, seed=11)
+save_img(chat, "chatroomBgImage@2x.png"); save_img(chat, "chatroomBgImage@3x.png")
+main = pattern_bg((846, 1503), 90, seed=5)
+save_img(main, "mainBgImage@2x.png"); save_img(main, "mainBgImage@3x.png")
+passbg = pattern_bg((846, 846), 70, PASS_TOP, PASS_BOT, seed=3)
+save_img(passbg.resize((375, 375), Image.LANCZOS), "passcodeBgImage.png")
+save_img(passbg, "passcodeBgImage@2x.png"); save_img(passbg, "passcodeBgImage@3x.png")
+
+def tabbar(size):
+    return gradient(size, (255, 220, 234), (255, 205, 224))
+save_img(tabbar((750, 106)), "maintabBgImage@2x.png")
+save_img(tabbar((1125, 159)), "maintabBgImage@3x.png")
 
 
-def _icon_base():
-    S = 75 * SS
-    im = Image.new("RGBA", (S, S), (0, 0, 0, 0))
-    return im, ImageDraw.Draw(im), S
+# ===========================================================================
+# Tab icons (normal=muted, Selected=accent).  2x:76x58  3x:156x118
+# ===========================================================================
+print("tab icons...")
+def _icon(fn, color, w, h):
+    s = 4
+    im = Image.new("RGBA", (w * s, h * s), (0, 0, 0, 0))
+    fn(ImageDraw.Draw(im), w * s, h * s, color)
+    return im.resize((w, h), Image.LANCZOS)
 
+def gi_friends(d, W, H, c):
+    cx, cy, r = W // 2, int(H * 0.60), int(H * 0.27)
+    for sx in (-1, 1):
+        d.ellipse([cx + sx * int(W * 0.12) - int(W * 0.055), cy - r - int(H * 0.34),
+                   cx + sx * int(W * 0.12) + int(W * 0.055), cy - r + int(H * 0.02)], fill=c)
+    d.ellipse([cx - r, cy - r, cx + r, cy + r], fill=c)
 
-def _ear_pair(d, S, color, cx, base_y, ew, eh, spread):
-    """Two short upright ears centered on cx with their base at base_y."""
-    for sign in (-1, 1):
-        ex = cx + sign * spread - ew // 2
-        d.ellipse([ex, base_y - eh, ex + ew, base_y + eh // 4], fill=color)
+def gi_chats(d, W, H, c):
+    cx = W // 2
+    for sx in (-1, 1):
+        d.ellipse([cx + sx * int(W * 0.15) - int(W * 0.045), int(H * 0.16),
+                   cx + sx * int(W * 0.15) + int(W * 0.045), int(H * 0.44)], fill=c)
+    d.rounded_rectangle([int(W * 0.24), int(H * 0.40), int(W * 0.76), int(H * 0.80)],
+                        radius=int(H * 0.16), fill=c)
+    d.polygon([(int(W * 0.32), int(H * 0.78)), (int(W * 0.24), int(H * 0.95)),
+               (int(W * 0.46), int(H * 0.78))], fill=c)
 
+def gi_browse(d, W, H, c):
+    cx, cy, r = int(W * 0.44), int(H * 0.44), int(H * 0.25)
+    d.ellipse([cx - r, cy - r, cx + r, cy + r], outline=c, width=int(H * 0.10))
+    d.line([cx + int(r * 0.7), cy + int(r * 0.7), int(W * 0.80), int(H * 0.84)],
+           fill=c, width=int(H * 0.11))
 
-def icon_friends(color):
-    """Bunny head: round face with two short ears."""
-    im, d, S = _icon_base()
-    cx = S // 2
-    fr = int(S * 0.27)            # face radius
-    fcy = int(S * 0.60)
-    _ear_pair(d, S, color, cx, fcy - fr + int(S * 0.04),
-              ew=int(S * 0.16), eh=int(S * 0.24), spread=int(S * 0.13))
-    d.ellipse([cx - fr, fcy - fr, cx + fr, fcy + fr], fill=color)
-    return im.resize((75, 75), Image.LANCZOS)
+def gi_game(d, W, H, c):
+    for sx in (-1, 1):
+        d.ellipse([W // 2 + sx * int(W * 0.20) - int(W * 0.045), int(H * 0.16),
+                   W // 2 + sx * int(W * 0.20) + int(W * 0.045), int(H * 0.40)], fill=c)
+    d.rounded_rectangle([int(W * 0.20), int(H * 0.36), int(W * 0.80), int(H * 0.78)],
+                        radius=int(H * 0.18), fill=c)
 
+def gi_more(d, W, H, c):
+    cy, r = H // 2, int(H * 0.09)
+    for x in (int(W * 0.30), int(W * 0.50), int(W * 0.70)):
+        d.ellipse([x - r, cy - r, x + r, cy + r], fill=c)
 
-def icon_chats(color):
-    """Speech bubble with two short ears and a tail nub."""
-    im, d, S = _icon_base()
-    cx = S // 2
-    bx0, by0, bx1, by1 = int(S * 0.20), int(S * 0.42), int(S * 0.80), int(S * 0.78)
-    _ear_pair(d, S, color, cx, by0 + int(S * 0.04),
-              ew=int(S * 0.15), eh=int(S * 0.22), spread=int(S * 0.16))
-    d.rounded_rectangle([bx0, by0, bx1, by1], radius=int(S * 0.16), fill=color)
-    d.polygon([(bx0 + int(S * 0.10), by1 - int(S * 0.02)),
-               (bx0 + int(S * 0.02), by1 + int(S * 0.12)),
-               (bx0 + int(S * 0.24), by1 - int(S * 0.02))], fill=color)
-    return im.resize((75, 75), Image.LANCZOS)
-
-
-def icon_openchat(color):
-    """Two overlapping bubbles, the back one wearing ears."""
-    im, d, S = _icon_base()
-    # back bubble (with ears)
-    _ear_pair(d, S, color, int(S * 0.42), int(S * 0.36),
-              ew=int(S * 0.13), eh=int(S * 0.19), spread=int(S * 0.13))
-    d.rounded_rectangle([int(S * 0.16), int(S * 0.34), int(S * 0.66), int(S * 0.66)],
-                        radius=int(S * 0.14), fill=color)
-    # front bubble (clear notch so it reads as two)
-    d.rounded_rectangle([int(S * 0.40), int(S * 0.50), int(S * 0.86), int(S * 0.80)],
-                        radius=int(S * 0.14), outline=color, width=int(S * 0.06))
-    im2 = Image.new("RGBA", (S, S), (0, 0, 0, 0))
-    d2 = ImageDraw.Draw(im2)
-    d2.rounded_rectangle([int(S * 0.40), int(S * 0.50), int(S * 0.86), int(S * 0.80)],
-                         radius=int(S * 0.14), fill=color)
-    # punch a gap between the two so they don't merge into a blob
-    gap = Image.new("RGBA", (S, S), (0, 0, 0, 0))
-    dg = ImageDraw.Draw(gap)
-    dg.rounded_rectangle([int(S * 0.36), int(S * 0.46), int(S * 0.46), int(S * 0.84)],
-                         radius=int(S * 0.05), fill=(0, 0, 0, 255))
-    base = Image.alpha_composite(im, im2)
-    base_px = base.load()
-    gap_px = gap.load()
-    for y in range(S):
-        for x in range(S):
-            if gap_px[x, y][3] > 0:
-                base_px[x, y] = (0, 0, 0, 0)
-    return base.resize((75, 75), Image.LANCZOS)
-
-
-def icon_more(color):
-    """Three dots with a tiny pair of ears on the middle one."""
-    im, d, S = _icon_base()
-    r = int(S * 0.09)
-    cy = S // 2
-    xs = [int(S * 0.30), int(S * 0.50), int(S * 0.70)]
-    _ear_pair(d, S, color, xs[1], cy - r - int(S * 0.02),
-              ew=int(S * 0.09), eh=int(S * 0.13), spread=int(S * 0.06))
-    for x in xs:
-        d.ellipse([x - r, cy - r, x + r, cy + r], fill=color)
-    return im.resize((75, 75), Image.LANCZOS)
-
-
-TAB_ICONS = {
-    "tab_friends":  icon_friends,
-    "tab_chats":    icon_chats,
-    "tab_openchat": icon_openchat,
-    "tab_more":     icon_more,
+# Friends, Chats, Browse(=3rd tab), Find, Piccoma, Game, More
+TAB = {
+    "maintabIcoFriends": gi_friends, "maintabIcoChats": gi_chats,
+    "maintabIcoBrowse": gi_browse,   "maintabIcoFind": gi_browse,
+    "maintabIcoPiccoma": gi_more,    "maintabIcoGame": gi_game,
+    "maintabIcoMore": gi_more,
 }
+for name, fn in TAB.items():
+    _icon(fn, MUTED, 76, 58).save(os.path.join(IMG, f"{name}@2x.png"))
+    _icon(fn, MUTED, 156, 118).save(os.path.join(IMG, f"{name}@3x.png"))
+    _icon(fn, ACCENT, 76, 58).save(os.path.join(IMG, f"{name}Selected@2x.png"))
+    _icon(fn, ACCENT, 156, 118).save(os.path.join(IMG, f"{name}Selected@3x.png"))
 
 
-def save_variants(img3x, name):
-    """img3x is the @3x master. Save @1x/@2x/@3x PNGs."""
-    w3, h3 = img3x.size
-    variants = {
-        "":    (w3 // 3, h3 // 3),
-        "@2x": (w3 * 2 // 3, h3 * 2 // 3),
-        "@3x": (w3, h3),
-    }
-    for suffix, size in variants.items():
-        out = img3x.resize(size, Image.LANCZOS) if size != (w3, h3) else img3x
-        out.save(os.path.join(IMG_DIR, f"{name}{suffix}.png"))
+# ===========================================================================
+# Theme icon, default profile, add-friend, passcode bullets & keypad
+# ===========================================================================
+print("icons & passcode...")
+def bunny_face(size, with_bg=True):
+    s = 4
+    W = size * s
+    im = Image.new("RGBA", (W, W), (0, 0, 0, 0))
+    d = ImageDraw.Draw(im)
+    if with_bg:
+        d.rounded_rectangle([0, 0, W, W], radius=int(W * 0.22), fill=(255, 224, 236))
+    cx, cy, r = W // 2, int(W * 0.60), int(W * 0.27)
+    lwf = max(2, int(W * 0.012))
+    for sx in (-1, 1):
+        d.ellipse([cx + sx * int(W * 0.14) - int(W * 0.07), cy - r - int(W * 0.32),
+                   cx + sx * int(W * 0.14) + int(W * 0.07), cy - r + int(W * 0.04)],
+                  fill=PINK, outline=PINK_LINE, width=lwf)
+    d.ellipse([cx - r, cy - r, cx + r, cy + r], fill=PINK, outline=PINK_LINE, width=lwf)
+    for sx in (-1, 1):
+        d.ellipse([cx + sx * int(r * 0.45) - int(r * 0.09), cy - int(r * 0.12),
+                   cx + sx * int(r * 0.45) + int(r * 0.09), cy + int(r * 0.12)], fill=TEXT_DARK)
+        d.ellipse([cx + sx * int(r * 0.64) - int(r * 0.12), cy + int(r * 0.18),
+                   cx + sx * int(r * 0.64) + int(r * 0.12), cy + int(r * 0.40)], fill=(255, 170, 195))
+    d.polygon([(cx - int(r * 0.10), cy + int(r * 0.16)), (cx + int(r * 0.10), cy + int(r * 0.16)),
+               (cx, cy + int(r * 0.32))], fill=(220, 120, 150))
+    return im.resize((size, size), Image.LANCZOS)
+
+bunny_face(162).save(os.path.join(IMG, "commonIcoTheme.png"))
+prof = bunny_face(240)
+prof.save(os.path.join(IMG, "profileImg01@2x.png"))
+prof.save(os.path.join(IMG, "profileImg01@3x.png"))
+
+def add_friend(w, h):
+    s = 4
+    im = Image.new("RGBA", (w * s, h * s), (0, 0, 0, 0))
+    d = ImageDraw.Draw(im)
+    gi_friends(d, int(w * s * 0.82), int(h * s), ACCENT)
+    cx, cy, r = int(w * s * 0.80), int(h * s * 0.30), int(h * s * 0.16)
+    d.line([cx - r, cy, cx + r, cy], fill=ACCENT, width=int(h * s * 0.09))
+    d.line([cx, cy - r, cx, cy + r], fill=ACCENT, width=int(h * s * 0.09))
+    return im.resize((w, h), Image.LANCZOS)
+add_friend(84, 68).save(os.path.join(IMG, "findBtnAddFriend@2x.png"))
+add_friend(126, 102).save(os.path.join(IMG, "findBtnAddFriend@3x.png"))
+
+def passcode_dot(px, filled):
+    s = 4
+    W = px * s
+    im = Image.new("RGBA", (W, W), (0, 0, 0, 0))
+    d = ImageDraw.Draw(im)
+    m = int(W * 0.32)
+    if filled:
+        d.ellipse([m, m, W - m, W - m], fill=ACCENT)
+    else:
+        d.ellipse([m, m, W - m, W - m], outline=MUTED, width=int(W * 0.05))
+    return im.resize((px, px), Image.LANCZOS)
+
+for i in (1, 2, 3, 4):
+    for suf in ("@2x", "@3x"):
+        passcode_dot(132, False).save(os.path.join(IMG, f"passcodeImgCode0{i}{suf}.png"))
+        passcode_dot(132, True).save(os.path.join(IMG, f"passcodeImgCode0{i}Selected{suf}.png"))
+
+def keypad(px):
+    s = 4
+    W = px * s
+    im = Image.new("RGBA", (W, W), (0, 0, 0, 0))
+    ImageDraw.Draw(im).ellipse([int(W * 0.08)] * 2 + [int(W * 0.92)] * 2,
+                               fill=(255, 209, 226, 235))
+    return im.resize((px, px), Image.LANCZOS)
+keypad(90).save(os.path.join(IMG, "passcodeKeypadPressed.png"))
+keypad(120).save(os.path.join(IMG, "passcodeKeypadPressed@2x.png"))
+keypad(180).save(os.path.join(IMG, "passcodeKeypadPressed@3x.png"))
 
 
-# ---- generate bubbles (master is @3x already) -----------------------------
-def bubble_master(fill, inner, line, tail):
-    # bunny_bubble returns @3x sized (300x200). Treat as @3x master.
-    return bunny_bubble(fill, inner, line, tail)
+# ===========================================================================
+# Verification + preview (not shipped in the .ktheme)
+# ===========================================================================
+print("preview...")
+def nine_slice(img, cap, tw, th):
+    w, h = img.size
+    c = min(cap, w // 2 - 1, h // 2 - 1)
+    tw, th = max(tw, 2 * c + 1), max(th, 2 * c + 1)
+    out = Image.new("RGBA", (tw, th), (0, 0, 0, 0))
+    xs = [(0, c, 0, c), (c, w - c, c, tw - c), (w - c, w, tw - c, tw)]
+    ys = [(0, c, 0, c), (c, h - c, c, th - c), (h - c, h, th - c, th)]
+    for sx0, sx1, dx0, dx1 in xs:
+        for sy0, sy1, dy0, dy1 in ys:
+            if sx1 <= sx0 or sy1 <= sy0:
+                continue
+            tile = img.crop((sx0, sy0, sx1, sy1))
+            out.alpha_composite(tile.resize((max(1, dx1 - dx0), max(1, dy1 - dy0)),
+                                            Image.BICUBIC), (dx0, dy0))
+    return out
 
+send3 = _bubble_master(PINK, PINK_EAR, PINK_LINE).resize((BUB_W * 3, BUB_H * 3), Image.LANCZOS)
+recv3 = _bubble_master(MINT, MINT_EAR, MINT_LINE).resize((BUB_W * 3, BUB_H * 3), Image.LANCZOS)
+cap3 = 20 * 3  # 20px (1x) on the @3x image
 
-print("Generating bunny chat bubbles...")
-sent = bubble_master(PINK, PINK_EAR_IN, PINK_LINE, tail="right")
-recv = bubble_master(MINT, MINT_EAR_IN, MINT_LINE, tail="left")
-save_variants(sent, "chatBubbleSent")
-save_variants(recv, "chatBubbleReceived")
+# (a) stretch proof
+verify = Image.new("RGBA", (760, 280), (250, 244, 250, 255))
+for i, (w, h) in enumerate([(BUB_W * 3, BUB_H * 3), (430, BUB_H * 3), (430, 240), (190, 240)]):
+    verify.alpha_composite(nine_slice(send3, cap3, w, h), (10 + i * 185, 20))
+verify.convert("RGB").save(os.path.join(PREV, "verify_stretch.png"))
 
-# ---- backgrounds ----------------------------------------------------------
-print("Generating backgrounds...")
-# Chatroom background @3x ~ 1242 x 2688 is huge; keep a tileable medium size.
-chat_bg = gradient((1242, 2208), BG_TOP, BG_BOT)
-chat_bg = cute_pattern(chat_bg, density=120)
-chat_bg.save(os.path.join(IMG_DIR, "bg_chatroom@3x.png"))
-chat_bg.resize((828, 1472), Image.LANCZOS).save(os.path.join(IMG_DIR, "bg_chatroom@2x.png"))
-chat_bg.resize((414, 736), Image.LANCZOS).save(os.path.join(IMG_DIR, "bg_chatroom.png"))
-
-# Friends / chats lists get a lighter version of the same motif so the whole
-# theme feels like one set.
-for nm in ("bg_friends", "bg_chats"):
-    g = gradient((1242, 2208), LIST_TOP, LIST_BOT)
-    g = cute_pattern(g, density=55)
-    g.save(os.path.join(IMG_DIR, f"{nm}@3x.png"))
-    g.resize((828, 1472), Image.LANCZOS).save(os.path.join(IMG_DIR, f"{nm}@2x.png"))
-    g.resize((414, 736), Image.LANCZOS).save(os.path.join(IMG_DIR, f"{nm}.png"))
-
-# ---- tab bar icons --------------------------------------------------------
-print("Generating tab bar icons...")
-for nm, fn in TAB_ICONS.items():
-    save_variants(fn(TAB_OFF), nm)          # normal state
-    save_variants(fn(TAB_ON), nm + "_on")   # selected state
-
-# ---- preview mockup -------------------------------------------------------
-print("Rendering preview mockup...")
+# (b) chat mockup
 PW, PH = 414, 736
-mock = gradient((PW, PH), BG_TOP, BG_BOT)
-mock = cute_pattern(mock, density=42).convert("RGBA")
+mock = pattern_bg((PW, PH), 40, seed=11).convert("RGBA")
 md = ImageDraw.Draw(mock)
-
-# nav bar
-md.rectangle([0, 0, PW, 64], fill=(255, 209, 226))
 try:
-    font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 20)
-    sfont = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 15)
+    f = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 19)
+    sf = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 14)
 except Exception:
-    font = ImageFont.load_default()
-    sfont = ImageFont.load_default()
-_motif_bunny(md, PW // 2 - 92, 34, 7, (255, 120, 165, 255))
-md.text((PW // 2 + 6, 36), "Pastel Bunny", font=font, fill=TEXT_DARK, anchor="mm")
+    f = sf = ImageFont.load_default()
+md.rectangle([0, 0, PW, 54], fill=(255, 215, 232))
+_bunny(md, PW // 2 - 64, 30, 6, (255, 120, 165, 255))
+md.text((PW // 2 + 6, 27), "Pastel Bunny", font=f, fill=TEXT_DARK, anchor="mm")
 
-def place_bubble(master, x, y, scale):
-    b = master.resize((int(master.width * scale), int(master.height * scale)), Image.LANCZOS)
+def msg(text, side, y):
+    tw = int((60 + len(text) * 7) * 1.0)
+    src = recv3 if side == "L" else send3
+    b = nine_slice(src, cap3, tw, 120)
+    b = b.resize((int(b.width * 0.55), int(b.height * 0.55)), Image.LANCZOS)
+    x = 14 if side == "L" else PW - 14 - b.width
     mock.alpha_composite(b, (x, y))
-    return b
+    md.text((x + b.width // 2, y + b.height // 2 + 2), text, font=sf, fill=TEXT_DARK, anchor="mm")
 
-# received (mint) on left, sent (pink) on right
-b1 = place_bubble(recv, 16, 110, 0.42)
-md.text((16 + b1.width // 2, 110 + b1.height // 2 + 6),
-        "hi there!", font=sfont, fill=TEXT_DARK, anchor="mm")
-b2 = place_bubble(sent, PW - 16 - int(sent.width * 0.42), 210, 0.42)
-md.text((PW - 16 - int(sent.width * 0.42) // 2 - 6, 210 + b2.height // 2 + 6),
-        "hello~", font=sfont, fill=TEXT_DARK, anchor="mm")
-b3 = place_bubble(recv, 16, 320, 0.42)
-md.text((16 + b3.width // 2, 320 + b3.height // 2 + 6),
-        "so cute!", font=sfont, fill=TEXT_DARK, anchor="mm")
+msg("hi there!", "L", 86)
+msg("hello~ how are you?", "R", 168)
+msg("so cute!!", "L", 262)
 
-# bottom tab bar with the bunny icons
-TB_H = 64
-md.rectangle([0, PH - TB_H, PW, PH], fill=(255, 209, 226))
-tab_order = [("tab_friends", True), ("tab_chats", False),
-             ("tab_openchat", False), ("tab_more", False)]
-slot = PW // len(tab_order)
-labels = ["Friends", "Chats", "Open", "More"]
-for i, (nm, on) in enumerate(tab_order):
-    col = TAB_ON if on else TAB_OFF
-    icon = (icon_friends if nm == "tab_friends" else
-            icon_chats if nm == "tab_chats" else
-            icon_openchat if nm == "tab_openchat" else icon_more)(col)
-    icon = icon.resize((30, 30), Image.LANCZOS)
-    ix = i * slot + (slot - 30) // 2
-    mock.alpha_composite(icon, (ix, PH - TB_H + 8))
-    md.text((i * slot + slot // 2, PH - 14), labels[i], font=sfont,
-            fill=col, anchor="mm")
+TBH = 58
+mock.alpha_composite(tabbar((PW, TBH)).convert("RGBA"), (0, PH - TBH))
+order = [("Friends", gi_friends, True), ("Chats", gi_chats, False),
+         ("Find", gi_browse, False), ("Shop", gi_game, False), ("More", gi_more, False)]
+slot = PW // len(order)
+for i, (lab, fn, on) in enumerate(order):
+    col = ACCENT if on else MUTED
+    mock.alpha_composite(_icon(fn, col, 30, 24), (i * slot + (slot - 30) // 2, PH - TBH + 8))
+    md.text((i * slot + slot // 2, PH - 11), lab, font=sf, fill=col, anchor="mm")
 
-mock.convert("RGB").save(os.path.join(PREVIEW_DIR, "preview.png"))
+mock.convert("RGB").save(os.path.join(PREV, "preview.png"))
+bunny_face(162).save(os.path.join(PREV, "thumbnail.png"))
 
-# ---- theme thumbnail (tile shown in KakaoTalk's theme list) ---------------
-print("Rendering theme thumbnail...")
-# Master at @3x; portrait tile like a mini phone screen.
-TW, TH = 540, 720
-thumb = gradient((TW, TH), BG_TOP, BG_BOT)
-thumb = cute_pattern(thumb, density=60).convert("RGBA")
-td = ImageDraw.Draw(thumb)
-
-try:
-    big = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 60)
-    sub = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 30)
-    tin = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 26)
-except Exception:
-    big = sub = tin = ImageFont.load_default()
-
-# soft rounded inner frame
-td.rounded_rectangle([18, 18, TW - 18, TH - 18], radius=42,
-                     outline=(255, 255, 255, 180), width=8)
-
-# hero: a big pink bunny bubble + a smaller mint one, overlapping
-hero = sent.resize((int(sent.width * 1.15), int(sent.height * 1.15)), Image.LANCZOS)
-thumb.alpha_composite(hero, ((TW - hero.width) // 2 + 28, 250))
-mini = recv.resize((int(recv.width * 0.72), int(recv.height * 0.72)), Image.LANCZOS)
-thumb.alpha_composite(mini, (54, 360))
-
-# decorative bunnies in the corners
-_motif_bunny(td, 70, 70, 16, (255, 130, 170, 200))
-_motif_bunny(td, TW - 80, 96, 13, (160, 210, 255, 200))
-
-# title
-td.text((TW // 2, 150), "Pastel", font=big, fill=(255, 111, 163), anchor="mm")
-td.text((TW // 2, 210), "Bunny", font=big, fill=TEXT_DARK, anchor="mm")
-td.text((TW // 2, TH - 70), "KakaoTalk theme", font=tin, fill=(150, 120, 134),
-        anchor="mm")
-
-thumb_rgb = thumb.convert("RGB")
-save_variants(thumb_rgb, "thumbnail")          # theme/Images/thumbnail*.png
-thumb_rgb.save(os.path.join(PREVIEW_DIR, "thumbnail.png"))
-
-print("Done. Assets in theme/Images/, previews in preview/")
+print("done.")

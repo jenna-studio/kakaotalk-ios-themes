@@ -1,138 +1,190 @@
 /* =========================================================================
-   Pastel Bunny  -  KakaoTalk iOS theme
+   Pastel Bunny - KakaoTalk iOS theme
    -------------------------------------------------------------------------
-   Sender bubble : pink bunny  (chatBubbleSent)
-   Receiver      : mint bunny  (chatBubbleReceived)
+   Built to the official KakaoTalk 8.0.0 iOS Theme User Guide.
+   Sender bubble = pink bunny, receiver bubble = mint bunny (short ears).
 
-   KakaoTalk iOS themes are a .ktheme package = a ZIP that contains this
-   file (KakaoTalkTheme.css, fixed name) at the root plus an Images/ folder.
-   Styling uses Kakao's custom -ios-* CSS properties.
-
-   NOTE: Kakao's full selector spec ships in their official PDF theme guide
-   (linked in README). The selectors below cover the common surfaces; if a
-   future KakaoTalk build renames a class, adjust the selector name only --
-   the colors/images stay the same.
+   Package layout (.ktheme = zip):
+     KakaoTalkTheme.css   (this file, at the root)
+     Images/...           (2x-based PNGs; @3x variants alongside)
+   Insets/caps below are 1x-based; order is: top left bottom right.
    ========================================================================= */
 
-/* ---- Theme manifest ---------------------------------------------------- */
-ManifestStyle {
-    -ios-theme-name: "Pastel Bunny";
-    -ios-theme-version: "1.0.0";
-    -ios-theme-author: "jenna-studio";
-    -ios-theme-url: "https://github.com/jenna-studio/kakaotalk-theme";
-    -ios-theme-thumbnail-image: url(Images/thumbnail.png);
+ManifestStyle
+{
+  -kakaotalk-theme-name: 'Pastel Bunny';
+  -kakaotalk-theme-version: '8.0.0';
+  -kakaotalk-theme-url: 'https://github.com/jenna-studio/kakaotalk-theme';
+  -kakaotalk-author-name: 'jenna-studio';
+  -kakaotalk-theme-id: 'com.kakao.talk.theme.pastelbunnyios';
 }
 
-/* ---- Global background / text ------------------------------------------ */
-BodyStyle {
-    -ios-background-color: #FFF4FA;
-    -ios-text-color: #5C4A54;
+DefaultProfileStyle
+{
+  -ios-profile-images: 'profileImg01.png';
 }
 
-/* ---- Navigation bar ---------------------------------------------------- */
-NavigationBarStyle1 {
-    -ios-background-color: #FFD1E2;
-    -ios-title-text-color: #5C4A54;
-    -ios-button-text-color: #5C4A54;
+HeaderStyle-Main
+{
+  -ios-text-color: #5C4A54;
+  -ios-tab-text-color: #C2A0B0;
+  -ios-tab-highlighted-text-color: #5C4A54;
 }
 
-NavigationBarButtonStyle {
-    -ios-text-color: #5C4A54;
-    -ios-text-alpha: 1.0;
+MainViewStyle-Primary
+{
+  background-color: #FFD7E8;
+  -ios-background-image: 'mainBgImage.png';
+  -ios-text-color: #5C4A54;
+  -ios-highlighted-text-color: #5C4A54;
+  -ios-description-text-color: #A98C99;
+  -ios-description-highlighted-text-color: #A98C99;
+  -ios-paragraph-text-color: #A98C99;
+  -ios-paragraph-highlighted-text-color: #A98C99;
+  -ios-normal-background-color: #FFFFFF;
+  -ios-normal-background-alpha: 0.0;
+  -ios-selected-background-color: #FF9EC0;
+  -ios-selected-background-alpha: 0.18;
 }
 
-/* ---- Friends list ------------------------------------------------------ */
-FriendsViewStyle {
-    -ios-background-image: url(Images/bg_friends.png);
-    -ios-background-color: #FFFAFD;
+MainViewStyle-Secondary
+{
+  background-color: #FBEAF1;
 }
 
-FriendsCellStyle {
-    -ios-background-color: transparent;
-    -ios-text-color: #5C4A54;
-    -ios-sub-text-color: #A98C99;
+SectionTitleStyle-Main
+{
+  border-color: #F0D7E1;
+  border-alpha: 0.6;
+  -ios-text-color: #B98DA0;
+  -ios-text-alpha: 1.0;
 }
 
-FriendsCellStyle:selected {
-    -ios-background-color: #FFE3EE;
+FeatureStyle-Primary
+{
+  -ios-text-color: #FF7FAE;
 }
 
-/* ---- Chats list -------------------------------------------------------- */
-ChatsViewStyle {
-    -ios-background-image: url(Images/bg_chats.png);
-    -ios-background-color: #F7FBFF;
+ButtonStyle-AddFriend
+{
+  -ios-image: 'findBtnAddFriend.png';
 }
 
-ChatsCellStyle {
-    -ios-background-color: transparent;
-    -ios-text-color: #5C4A54;
-    -ios-sub-text-color: #A98C99;
-    -ios-badge-background-color: #FF9EC0;
-    -ios-badge-text-color: #FFFFFF;
+TabBarStyle-Main
+{
+  -ios-background-image: 'maintabBgImage.png';
+  background-color: #FFD7E8;
+  -ios-friends-normal-icon-image: 'maintabIcoFriends.png';
+  -ios-friends-selected-icon-image: 'maintabIcoFriendsSelected.png';
+  -ios-chats-normal-icon-image: 'maintabIcoChats.png';
+  -ios-chats-selected-icon-image: 'maintabIcoChatsSelected.png';
+  -ios-browse-normal-icon-image: 'maintabIcoBrowse.png';
+  -ios-browse-selected-icon-image: 'maintabIcoBrowseSelected.png';
+  -ios-find-normal-icon-image: 'maintabIcoFind.png';
+  -ios-find-selected-icon-image: 'maintabIcoFindSelected.png';
+  -ios-piccoma-normal-icon-image: 'maintabIcoPiccoma.png';
+  -ios-piccoma-selected-icon-image: 'maintabIcoPiccomaSelected.png';
+  -ios-game-normal-icon-image: 'maintabIcoGame.png';
+  -ios-game-selected-icon-image: 'maintabIcoGameSelected.png';
+  -ios-more-normal-icon-image: 'maintabIcoMore.png';
+  -ios-more-selected-icon-image: 'maintabIcoMoreSelected.png';
 }
 
-ChatsCellStyle:selected {
-    -ios-background-color: #E3F6EF;
+BackgroundStyle-ChatRoom
+{
+  background-color: #FBEFF5;
+  -ios-background-image: 'chatroomBgImage.png';
 }
 
-/* ---- Chat room (the conversation screen) ------------------------------- */
-ChatRoomViewStyle {
-    -ios-background-image: url(Images/bg_chatroom.png);
-    -ios-background-color: #FFF4FA;
+InputBarStyle-Chat
+{
+  background-color: #FFE9F2;
+  -ios-send-normal-background-color: #FF7FAE;
+  -ios-send-highlighted-background-color: #F06A9A;
+  -ios-send-normal-foreground-color: #FFFFFF;
+  -ios-send-highlighted-foreground-color: #FFFFFF;
+  -ios-button-normal-foreground-color: #C2849C;
+  -ios-button-highlighted-foreground-color: #FF7FAE;
 }
 
-/* ---- Chat bubbles ------------------------------------------------------ */
-/* Sender = pink bunny. The cap-insets keep the ears/corners from stretching
-   while the middle of the body stretches to fit the message text.
-   Insets are rect(top, left, bottom, right) in @1x points.            */
-SentMessageStyle {
-    -ios-background-image: url(Images/chatBubbleSent.png);
-    -ios-background-image-cap-insets: rect(46, 18, 22, 18);
-    -ios-text-color: #5C4A54;
-    -ios-link-text-color: #E06A9A;
-    -ios-time-text-color: #B79AA6;
+MessageCellStyle-Send
+{
+  -ios-background-image: 'chatroomBubbleSend01.png' 20px 20px;
+  -ios-selected-background-image: 'chatroomBubbleSend01Selected.png' 20px 20px;
+  -ios-group-background-image: 'chatroomBubbleSend02.png' 20px 20px;
+  -ios-group-selected-background-image: 'chatroomBubbleSend02Selected.png' 20px 20px;
+  -ios-title-edgeinsets: 10px 10px 7px 12px;
+  -ios-group-title-edgeinsets: 10px 10px 7px 12px;
+  -ios-text-color: #5C4A54;
+  -ios-selected-text-color: #5C4A54;
+  -ios-unread-text-color: #FF7FAE;
 }
 
-/* Receiver = mint bunny */
-ReceivedMessageStyle {
-    -ios-background-image: url(Images/chatBubbleReceived.png);
-    -ios-background-image-cap-insets: rect(46, 18, 22, 18);
-    -ios-text-color: #41544C;
-    -ios-link-text-color: #2FA585;
-    -ios-time-text-color: #93A89F;
+MessageCellStyle-Receive
+{
+  -ios-background-image: 'chatroomBubbleReceive01.png' 20px 20px;
+  -ios-selected-background-image: 'chatroomBubbleReceive01Selected.png' 20px 20px;
+  -ios-group-background-image: 'chatroomBubbleReceive02.png' 20px 20px;
+  -ios-group-selected-background-image: 'chatroomBubbleReceive02Selected.png' 20px 20px;
+  -ios-title-edgeinsets: 10px 16px 7px 10px;
+  -ios-group-title-edgeinsets: 10px 16px 7px 10px;
+  -ios-text-color: #41544C;
+  -ios-selected-text-color: #41544C;
+  -ios-unread-text-color: #2FA585;
 }
 
-/* ---- Chat input bar ---------------------------------------------------- */
-ChatRoomInputBarStyle {
-    -ios-background-color: #FFE9F2;
-    -ios-text-color: #5C4A54;
-    -ios-placeholder-text-color: #C2A8B4;
-    -ios-send-button-text-color: #FF7FAE;
+BackgroundStyle-Passcode
+{
+  background-color: #FFF0F8;
+  -ios-background-image: 'passcodeBgImage.png';
 }
 
-/* ---- Tab bar ----------------------------------------------------------- */
-TabBarStyle {
-    -ios-background-color: #FFD1E2;
-    -ios-text-color: #B98DA0;
-    -ios-selected-text-color: #FF6FA3;
+LabelStyle-PasscodeTitle
+{
+  -ios-text-color: #5C4A54;
 }
 
-/* Per-tab bunny icons (normal + selected). Selector names follow Kakao's
-   tab-item convention; if a KakaoTalk build uses different item names, only
-   the selectors here need renaming -- the icon files stay the same. */
-TabBarItemFriendsStyle {
-    -ios-image: url(Images/tab_friends.png);
-    -ios-selected-image: url(Images/tab_friends_on.png);
+PasscodeStyle
+{
+  -ios-bullet-first-image: 'passcodeImgCode01.png';
+  -ios-bullet-second-image: 'passcodeImgCode02.png';
+  -ios-bullet-third-image: 'passcodeImgCode03.png';
+  -ios-bullet-fourth-image: 'passcodeImgCode04.png';
+  -ios-bullet-selected-first-image: 'passcodeImgCode01Selected.png';
+  -ios-bullet-selected-second-image: 'passcodeImgCode02Selected.png';
+  -ios-bullet-selected-third-image: 'passcodeImgCode03Selected.png';
+  -ios-bullet-selected-fourth-image: 'passcodeImgCode04Selected.png';
+  -ios-keypad-background-color: #FFE3EF;
+  -ios-keypad-text-normal-color: #5C4A54;
+  -ios-keypad-number-highlighted-image: 'passcodeKeypadPressed.png';
 }
-TabBarItemChatsStyle {
-    -ios-image: url(Images/tab_chats.png);
-    -ios-selected-image: url(Images/tab_chats_on.png);
+
+BackgroundStyle-MessageNotificationBar
+{
+  background-color: #FFD7E8;
 }
-TabBarItemOpenChatStyle {
-    -ios-image: url(Images/tab_openchat.png);
-    -ios-selected-image: url(Images/tab_openchat_on.png);
+
+LabelStyle-MessageNotificationBarName
+{
+  -ios-text-color: #5C4A54;
 }
-TabBarItemMoreStyle {
-    -ios-image: url(Images/tab_more.png);
-    -ios-selected-image: url(Images/tab_more_on.png);
+
+LabelStyle-MessageNotificationBarMessage
+{
+  -ios-text-color: #5C4A54;
+}
+
+BackgroundStyle-DirectShareBar
+{
+  background-color: #FFD7E8;
+}
+
+LabelStyle-DirectShareBarName
+{
+  -ios-text-color: #5C4A54;
+}
+
+LabelStyle-DirectShareBarMessage
+{
+  -ios-text-color: #5C4A54;
 }
