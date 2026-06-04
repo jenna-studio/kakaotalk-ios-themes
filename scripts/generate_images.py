@@ -119,23 +119,147 @@ def gradient(size, top, bottom):
     return base.resize((w, h))
 
 
-def scatter_pattern(img, color, density=26):
-    """Sprinkle faint hearts / dots over a background for cuteness."""
+def _motif_bunny(d, x, y, s, c):
+    d.ellipse([x - s, y - s, x + s, y + s], fill=c)                       # face
+    for sx in (-1, 1):                                                     # ears
+        d.ellipse([x + sx * int(s * 0.5) - int(s * 0.28), y - int(s * 1.9),
+                   x + sx * int(s * 0.5) + int(s * 0.28), y - int(s * 0.4)], fill=c)
+
+
+def _motif_heart(d, x, y, s, c):
+    d.ellipse([x - s, y - s, x, y], fill=c)
+    d.ellipse([x, y - s, x + s, y], fill=c)
+    d.polygon([(x - s, y - int(s * 0.35)), (x + s, y - int(s * 0.35)),
+               (x, y + s)], fill=c)
+
+
+def _motif_carrot(d, x, y, s, c, leaf):
+    d.polygon([(x, y + int(s * 1.6)), (x - int(s * 0.6), y - int(s * 0.4)),
+               (x + int(s * 0.6), y - int(s * 0.4))], fill=c)             # body
+    for off in (-0.4, 0, 0.4):                                            # leaves
+        d.ellipse([x + int(off * s) - int(s * 0.18), y - int(s * 1.1),
+                   x + int(off * s) + int(s * 0.18), y - int(s * 0.2)], fill=leaf)
+
+
+def cute_pattern(img, density=70):
+    """Scatter faint bunnies, hearts and carrots across the background."""
     import random
-    random.seed(7)
+    random.seed(11)
     w, h = img.size
     layer = Image.new("RGBA", (w, h), (0, 0, 0, 0))
     d = ImageDraw.Draw(layer)
+    palette = [(255, 170, 200), (255, 150, 185), (170, 215, 255), (180, 230, 205)]
     for _ in range(density):
         x = random.randint(0, w)
         y = random.randint(0, h)
-        s = random.randint(w // 60, w // 32)
-        a = random.randint(22, 46)
-        c = color + (a,)
-        # tiny dot
-        d.ellipse([x, y, x + s, y + s], fill=c)
+        s = random.randint(w // 70, w // 40)
+        a = random.randint(26, 52)
+        base = random.choice(palette)
+        c = base + (a,)
+        kind = random.random()
+        if kind < 0.45:
+            _motif_bunny(d, x, y, s, c)
+        elif kind < 0.8:
+            _motif_heart(d, x, y, int(s * 1.1), c)
+        else:
+            _motif_carrot(d, x, y, s, (255, 165, 110, a), (170, 220, 160, a))
     img = img.convert("RGBA")
     return Image.alpha_composite(img, layer).convert("RGB")
+
+
+# ---- tab bar icons --------------------------------------------------------
+TAB_OFF = (185, 141, 160)   # normal (muted mauve)
+TAB_ON  = (255, 111, 163)   # selected (pink)
+
+
+def _icon_base():
+    S = 75 * SS
+    im = Image.new("RGBA", (S, S), (0, 0, 0, 0))
+    return im, ImageDraw.Draw(im), S
+
+
+def _ear_pair(d, S, color, cx, base_y, ew, eh, spread):
+    """Two short upright ears centered on cx with their base at base_y."""
+    for sign in (-1, 1):
+        ex = cx + sign * spread - ew // 2
+        d.ellipse([ex, base_y - eh, ex + ew, base_y + eh // 4], fill=color)
+
+
+def icon_friends(color):
+    """Bunny head: round face with two short ears."""
+    im, d, S = _icon_base()
+    cx = S // 2
+    fr = int(S * 0.27)            # face radius
+    fcy = int(S * 0.60)
+    _ear_pair(d, S, color, cx, fcy - fr + int(S * 0.04),
+              ew=int(S * 0.16), eh=int(S * 0.24), spread=int(S * 0.13))
+    d.ellipse([cx - fr, fcy - fr, cx + fr, fcy + fr], fill=color)
+    return im.resize((75, 75), Image.LANCZOS)
+
+
+def icon_chats(color):
+    """Speech bubble with two short ears and a tail nub."""
+    im, d, S = _icon_base()
+    cx = S // 2
+    bx0, by0, bx1, by1 = int(S * 0.20), int(S * 0.42), int(S * 0.80), int(S * 0.78)
+    _ear_pair(d, S, color, cx, by0 + int(S * 0.04),
+              ew=int(S * 0.15), eh=int(S * 0.22), spread=int(S * 0.16))
+    d.rounded_rectangle([bx0, by0, bx1, by1], radius=int(S * 0.16), fill=color)
+    d.polygon([(bx0 + int(S * 0.10), by1 - int(S * 0.02)),
+               (bx0 + int(S * 0.02), by1 + int(S * 0.12)),
+               (bx0 + int(S * 0.24), by1 - int(S * 0.02))], fill=color)
+    return im.resize((75, 75), Image.LANCZOS)
+
+
+def icon_openchat(color):
+    """Two overlapping bubbles, the back one wearing ears."""
+    im, d, S = _icon_base()
+    # back bubble (with ears)
+    _ear_pair(d, S, color, int(S * 0.42), int(S * 0.36),
+              ew=int(S * 0.13), eh=int(S * 0.19), spread=int(S * 0.13))
+    d.rounded_rectangle([int(S * 0.16), int(S * 0.34), int(S * 0.66), int(S * 0.66)],
+                        radius=int(S * 0.14), fill=color)
+    # front bubble (clear notch so it reads as two)
+    d.rounded_rectangle([int(S * 0.40), int(S * 0.50), int(S * 0.86), int(S * 0.80)],
+                        radius=int(S * 0.14), outline=color, width=int(S * 0.06))
+    im2 = Image.new("RGBA", (S, S), (0, 0, 0, 0))
+    d2 = ImageDraw.Draw(im2)
+    d2.rounded_rectangle([int(S * 0.40), int(S * 0.50), int(S * 0.86), int(S * 0.80)],
+                         radius=int(S * 0.14), fill=color)
+    # punch a gap between the two so they don't merge into a blob
+    gap = Image.new("RGBA", (S, S), (0, 0, 0, 0))
+    dg = ImageDraw.Draw(gap)
+    dg.rounded_rectangle([int(S * 0.36), int(S * 0.46), int(S * 0.46), int(S * 0.84)],
+                         radius=int(S * 0.05), fill=(0, 0, 0, 255))
+    base = Image.alpha_composite(im, im2)
+    base_px = base.load()
+    gap_px = gap.load()
+    for y in range(S):
+        for x in range(S):
+            if gap_px[x, y][3] > 0:
+                base_px[x, y] = (0, 0, 0, 0)
+    return base.resize((75, 75), Image.LANCZOS)
+
+
+def icon_more(color):
+    """Three dots with a tiny pair of ears on the middle one."""
+    im, d, S = _icon_base()
+    r = int(S * 0.09)
+    cy = S // 2
+    xs = [int(S * 0.30), int(S * 0.50), int(S * 0.70)]
+    _ear_pair(d, S, color, xs[1], cy - r - int(S * 0.02),
+              ew=int(S * 0.09), eh=int(S * 0.13), spread=int(S * 0.06))
+    for x in xs:
+        d.ellipse([x - r, cy - r, x + r, cy + r], fill=color)
+    return im.resize((75, 75), Image.LANCZOS)
+
+
+TAB_ICONS = {
+    "tab_friends":  icon_friends,
+    "tab_chats":    icon_chats,
+    "tab_openchat": icon_openchat,
+    "tab_more":     icon_more,
+}
 
 
 def save_variants(img3x, name):
@@ -167,22 +291,31 @@ save_variants(recv, "chatBubbleReceived")
 print("Generating backgrounds...")
 # Chatroom background @3x ~ 1242 x 2688 is huge; keep a tileable medium size.
 chat_bg = gradient((1242, 2208), BG_TOP, BG_BOT)
-chat_bg = scatter_pattern(chat_bg, (255, 180, 205), density=40)
+chat_bg = cute_pattern(chat_bg, density=120)
 chat_bg.save(os.path.join(IMG_DIR, "bg_chatroom@3x.png"))
 chat_bg.resize((828, 1472), Image.LANCZOS).save(os.path.join(IMG_DIR, "bg_chatroom@2x.png"))
 chat_bg.resize((414, 736), Image.LANCZOS).save(os.path.join(IMG_DIR, "bg_chatroom.png"))
 
+# Friends / chats lists get a lighter version of the same motif so the whole
+# theme feels like one set.
 for nm in ("bg_friends", "bg_chats"):
     g = gradient((1242, 2208), LIST_TOP, LIST_BOT)
+    g = cute_pattern(g, density=55)
     g.save(os.path.join(IMG_DIR, f"{nm}@3x.png"))
     g.resize((828, 1472), Image.LANCZOS).save(os.path.join(IMG_DIR, f"{nm}@2x.png"))
     g.resize((414, 736), Image.LANCZOS).save(os.path.join(IMG_DIR, f"{nm}.png"))
+
+# ---- tab bar icons --------------------------------------------------------
+print("Generating tab bar icons...")
+for nm, fn in TAB_ICONS.items():
+    save_variants(fn(TAB_OFF), nm)          # normal state
+    save_variants(fn(TAB_ON), nm + "_on")   # selected state
 
 # ---- preview mockup -------------------------------------------------------
 print("Rendering preview mockup...")
 PW, PH = 414, 736
 mock = gradient((PW, PH), BG_TOP, BG_BOT)
-mock = scatter_pattern(mock, (255, 180, 205), density=18).convert("RGBA")
+mock = cute_pattern(mock, density=42).convert("RGBA")
 md = ImageDraw.Draw(mock)
 
 # nav bar
@@ -210,6 +343,24 @@ md.text((PW - 16 - int(sent.width * 0.42) // 2 - 6, 210 + b2.height // 2 + 6),
 b3 = place_bubble(recv, 16, 320, 0.42)
 md.text((16 + b3.width // 2, 320 + b3.height // 2 + 6),
         "so cute!", font=sfont, fill=TEXT_DARK, anchor="mm")
+
+# bottom tab bar with the bunny icons
+TB_H = 64
+md.rectangle([0, PH - TB_H, PW, PH], fill=(255, 209, 226))
+tab_order = [("tab_friends", True), ("tab_chats", False),
+             ("tab_openchat", False), ("tab_more", False)]
+slot = PW // len(tab_order)
+labels = ["Friends", "Chats", "Open", "More"]
+for i, (nm, on) in enumerate(tab_order):
+    col = TAB_ON if on else TAB_OFF
+    icon = (icon_friends if nm == "tab_friends" else
+            icon_chats if nm == "tab_chats" else
+            icon_openchat if nm == "tab_openchat" else icon_more)(col)
+    icon = icon.resize((30, 30), Image.LANCZOS)
+    ix = i * slot + (slot - 30) // 2
+    mock.alpha_composite(icon, (ix, PH - TB_H + 8))
+    md.text((i * slot + slot // 2, PH - 14), labels[i], font=sfont,
+            fill=col, anchor="mm")
 
 mock.convert("RGB").save(os.path.join(PREVIEW_DIR, "preview.png"))
 

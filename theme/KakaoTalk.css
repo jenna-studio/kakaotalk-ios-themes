@@ -115,3 +115,23 @@ TabBarStyle {
     -ios-text-color: #B98DA0;
     -ios-selected-text-color: #FF6FA3;
 }
+
+/* Per-tab bunny icons (normal + selected). Selector names follow Kakao's
+   tab-item convention; if a KakaoTalk build uses different item names, only
+   the selectors here need renaming -- the icon files stay the same. */
+TabBarItemFriendsStyle {
+    -ios-image: url(Images/tab_friends.png);
+    -ios-selected-image: url(Images/tab_friends_on.png);
+}
+TabBarItemChatsStyle {
+    -ios-image: url(Images/tab_chats.png);
+    -ios-selected-image: url(Images/tab_chats_on.png);
+}
+TabBarItemOpenChatStyle {
+    -ios-image: url(Images/tab_openchat.png);
+    -ios-selected-image: url(Images/tab_openchat_on.png);
+}
+TabBarItemMoreStyle {
+    -ios-image: url(Images/tab_more.png);
+    -ios-selected-image: url(Images/tab_more_on.png);
+}

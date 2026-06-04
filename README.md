@@ -21,11 +21,12 @@ extension has been renamed. Inside it:
 PastelBunny.ktheme  (zip)
 ├── KakaoTalk.css        ← fixed filename; defines colors + image references
 └── Images/              ← PNG assets, with @2x and @3x Retina variants
-    ├── chatBubbleSent.png        chatBubbleSent@2x.png        chatBubbleSent@3x.png
-    ├── chatBubbleReceived.png    chatBubbleReceived@2x.png    chatBubbleReceived@3x.png
-    ├── bg_chatroom*.png
-    ├── bg_friends*.png
-    └── bg_chats*.png
+    ├── chatBubbleSent.png        (+@2x/@3x)   pink bunny
+    ├── chatBubbleReceived.png    (+@2x/@3x)   mint bunny
+    ├── bg_chatroom*.png                       bunny/heart/carrot pattern
+    ├── bg_friends*.png / bg_chats*.png        lighter matching pattern
+    └── tab_{friends,chats,openchat,more}.png  bunny tab icons
+        + each tab_*_on.png (selected, pink)   (all +@2x/@3x)
 ```
 
 Styling uses Kakao's custom `-ios-*` CSS properties (e.g.
@@ -86,8 +87,10 @@ re-import.
 - **Bubble shape/colors:** edit the palette constants at the top of
   `scripts/generate_images.py` (`PINK`, `MINT`, ear/outline colors), then
   rerun the build.
-- **Backgrounds:** tweak `BG_TOP` / `BG_BOT` and the `scatter_pattern`
-  density in the same script.
+- **Backgrounds:** tweak `BG_TOP` / `BG_BOT` and the `cute_pattern`
+  density (and the motif palette/shapes) in the same script.
+- **Tab icons:** the `icon_*` functions in `generate_images.py` draw the
+  bunny tab silhouettes; `TAB_OFF` / `TAB_ON` set the normal/selected colors.
 
 ---
 
