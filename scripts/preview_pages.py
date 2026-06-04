@@ -104,18 +104,19 @@ def chatroom():
     def bubble(text, side, y):
         ft = font(14)
         tw = int(d.textlength(text, font=ft))
-        bw, bh = tw + 46, 60
+        bw, bh = tw + 40, 62
+        ty = y + int(bh * 0.60)          # body center (ears occupy the top)
         img = nine_slice(recv if side == "L" else send, cap, bw, bh)
         if side == "L":
-            s.alpha_composite(prof, (14, y))
+            s.alpha_composite(prof, (14, y + 8))
             bx = 62
             s.alpha_composite(img, (bx, y))
-            d.text((bx + 24, y + bh // 2), text, font=ft, fill=(65, 84, 76), anchor="lm")
+            d.text((bx + bw // 2, ty), text, font=ft, fill=(65, 84, 76), anchor="mm")
             d.text((bx + bw + 6, y + bh - 8), "6:45", font=font(9), fill=SUB, anchor="lm")
         else:
             bx = W - 14 - bw
             s.alpha_composite(img, (bx, y))
-            d.text((bx + 18, y + bh // 2), text, font=ft, fill=TEXT, anchor="lm")
+            d.text((bx + bw // 2, ty), text, font=ft, fill=TEXT, anchor="mm")
             d.text((bx - 6, y + bh - 8), "6:45", font=font(9), fill=SUB, anchor="rm")
 
     d.text((62, 88), "Apeach", font=font(11), fill=SUB, anchor="lm")

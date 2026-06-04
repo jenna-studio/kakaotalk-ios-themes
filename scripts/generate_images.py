@@ -137,34 +137,32 @@ def _carrot(d, x, y, s, cc, lc):
         d.ellipse([x + int(o * s) - s // 5, y - s, x + int(o * s) + s // 5, y], fill=lc)
 
 
-def pattern_bg(size, density, top=BG_TOP, bot=BG_BOT, seed=11):
+def pattern_bg(size, density, top=BG_TOP, bot=BG_BOT, seed=11, amax=24):
+    """Soft gradient with a FEW faint, small accents (kept subtle on purpose)."""
     import random
     random.seed(seed)
     img = gradient(size, top, bot).convert("RGBA")
     w, h = size
     layer = Image.new("RGBA", (w, h), (0, 0, 0, 0))
     d = ImageDraw.Draw(layer)
-    pal = [(255, 170, 200), (255, 150, 185), (170, 215, 255), (180, 230, 205)]
+    pal = [(255, 178, 205), (255, 196, 214), (188, 224, 255)]
     for _ in range(density):
         x, y = random.randint(0, w), random.randint(0, h)
-        s = random.randint(max(6, w // 70), max(10, w // 38))
-        a = random.randint(26, 52)
-        k = random.random()
-        if k < 0.45:
-            _bunny(d, x, y, s, random.choice(pal) + (a,))
-        elif k < 0.8:
-            _heart(d, x, y, int(s * 1.1), random.choice(pal) + (a,))
+        s = random.randint(max(5, w // 95), max(8, w // 60))   # smaller
+        a = random.randint(max(6, amax - 12), amax)            # fainter
+        if random.random() < 0.55:
+            _heart(d, x, y, int(s * 0.9), random.choice(pal) + (a,))
         else:
-            _carrot(d, x, y, s, (255, 165, 110, a), (170, 220, 160, a))
+            _bunny(d, x, y, s, random.choice(pal) + (a,))
     return Image.alpha_composite(img, layer).convert("RGB")
 
 
 print("backgrounds...")
-chat = pattern_bg((846, 1503), 150, seed=11)
+chat = pattern_bg((846, 1503), 24, seed=11, amax=22)
 save_img(chat, "chatroomBgImage@2x.png"); save_img(chat, "chatroomBgImage@3x.png")
-main = pattern_bg((846, 1503), 90, seed=5)
+main = pattern_bg((846, 1503), 18, seed=5, amax=20)
 save_img(main, "mainBgImage@2x.png"); save_img(main, "mainBgImage@3x.png")
-passbg = pattern_bg((846, 846), 70, PASS_TOP, PASS_BOT, seed=3)
+passbg = pattern_bg((846, 846), 12, PASS_TOP, PASS_BOT, seed=3, amax=18)
 save_img(passbg.resize((375, 375), Image.LANCZOS), "passcodeBgImage.png")
 save_img(passbg, "passcodeBgImage@2x.png"); save_img(passbg, "passcodeBgImage@3x.png")
 
@@ -185,10 +183,12 @@ def _icon(fn, color, w, h):
     return im.resize((w, h), Image.LANCZOS)
 
 def gi_friends(d, W, H, c):
-    cx, cy, r = W // 2, int(H * 0.60), int(H * 0.27)
+    # clean bunny head: round face + two upright ears
+    cx, cy, r = W // 2, int(H * 0.62), int(H * 0.25)
+    ew = int(W * 0.05)
     for sx in (-1, 1):
-        d.ellipse([cx + sx * int(W * 0.12) - int(W * 0.055), cy - r - int(H * 0.34),
-                   cx + sx * int(W * 0.12) + int(W * 0.055), cy - r + int(H * 0.02)], fill=c)
+        ex = cx + sx * int(W * 0.10)
+        d.ellipse([ex - ew, cy - r - int(H * 0.34), ex + ew, cy - r + int(H * 0.06)], fill=c)
     d.ellipse([cx - r, cy - r, cx + r, cy + r], fill=c)
 
 def gi_chats(d, W, H, c):
@@ -238,26 +238,30 @@ for name, fn in TAB.items():
 # ===========================================================================
 print("icons & passcode...")
 def bunny_face(size, with_bg=True):
+    """Clean white bunny on a soft pastel circle (used for profile + theme icon)."""
     s = 4
     W = size * s
     im = Image.new("RGBA", (W, W), (0, 0, 0, 0))
     d = ImageDraw.Draw(im)
     if with_bg:
-        d.rounded_rectangle([0, 0, W, W], radius=int(W * 0.22), fill=(255, 224, 236))
-    cx, cy, r = W // 2, int(W * 0.60), int(W * 0.27)
-    lwf = max(2, int(W * 0.012))
-    for sx in (-1, 1):
-        d.ellipse([cx + sx * int(W * 0.14) - int(W * 0.07), cy - r - int(W * 0.32),
-                   cx + sx * int(W * 0.14) + int(W * 0.07), cy - r + int(W * 0.04)],
-                  fill=PINK, outline=PINK_LINE, width=lwf)
-    d.ellipse([cx - r, cy - r, cx + r, cy + r], fill=PINK, outline=PINK_LINE, width=lwf)
-    for sx in (-1, 1):
-        d.ellipse([cx + sx * int(r * 0.45) - int(r * 0.09), cy - int(r * 0.12),
-                   cx + sx * int(r * 0.45) + int(r * 0.09), cy + int(r * 0.12)], fill=TEXT_DARK)
-        d.ellipse([cx + sx * int(r * 0.64) - int(r * 0.12), cy + int(r * 0.18),
-                   cx + sx * int(r * 0.64) + int(r * 0.12), cy + int(r * 0.40)], fill=(255, 170, 195))
-    d.polygon([(cx - int(r * 0.10), cy + int(r * 0.16)), (cx + int(r * 0.10), cy + int(r * 0.16)),
-               (cx, cy + int(r * 0.32))], fill=(220, 120, 150))
+        d.ellipse([0, 0, W, W], fill=(255, 226, 237))
+    cx, cy, r = W // 2, int(W * 0.58), int(W * 0.26)
+    line = (242, 212, 224)
+    lwf = max(2, int(W * 0.010))
+    white = (255, 255, 255)
+    ew = int(W * 0.085)
+    for sx in (-1, 1):                       # upright ears
+        ex = cx + sx * int(W * 0.12)
+        d.ellipse([ex - ew, cy - r - int(W * 0.30), ex + ew, cy - r + int(W * 0.05)],
+                  fill=white, outline=line, width=lwf)
+        d.ellipse([ex - int(ew * 0.5), cy - r - int(W * 0.25),
+                   ex + int(ew * 0.5), cy - r - int(W * 0.02)], fill=(255, 205, 219))
+    d.ellipse([cx - r, cy - r, cx + r, cy + r], fill=white, outline=line, width=lwf)
+    for sx in (-1, 1):                       # two simple eyes
+        d.ellipse([cx + sx * int(r * 0.42) - int(r * 0.085), cy - int(r * 0.02),
+                   cx + sx * int(r * 0.42) + int(r * 0.085), cy + int(r * 0.20)], fill=TEXT_DARK)
+    d.ellipse([cx - int(r * 0.09), cy + int(r * 0.18),                 # tiny nose
+               cx + int(r * 0.09), cy + int(r * 0.34)], fill=(255, 150, 180))
     return im.resize((size, size), Image.LANCZOS)
 
 bunny_face(162).save(os.path.join(IMG, "commonIcoTheme.png"))
