@@ -20,10 +20,10 @@ echo "==> Packaging $NAME.ktheme"
 mkdir -p "$DIST"
 rm -f "$OUT"
 
-# Zip from inside theme/ so KakaoTalk.css and Images/ sit at the archive root.
-# -D omits directory entries (some theme importers reject the "Images/" entry).
+# Zip from inside theme/ so KakaoTalkTheme.css and Images/ sit at the archive
+# root. -D omits directory entries (some importers reject the "Images/" entry).
 cd "$ROOT/theme"
-zip -r -D -X "$OUT" KakaoTalk.css Images -x '.*' >/dev/null
+zip -r -D -X "$OUT" KakaoTalkTheme.css Images -x '.*' >/dev/null
 
 echo "==> Done: dist/$NAME.ktheme"
 unzip -l "$OUT" | sed 's/^/    /'

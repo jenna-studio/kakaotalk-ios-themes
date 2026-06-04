@@ -19,7 +19,7 @@ extension has been renamed. Inside it:
 
 ```
 PastelBunny.ktheme  (zip)
-├── KakaoTalk.css        ← fixed filename; defines colors + image references
+├── KakaoTalkTheme.css        ← fixed filename; defines colors + image references
 └── Images/              ← PNG assets, with @2x and @3x Retina variants
     ├── chatBubbleSent.png        (+@2x/@3x)   pink bunny
     ├── chatBubbleReceived.png    (+@2x/@3x)   mint bunny
@@ -44,7 +44,7 @@ Styling uses Kakao's custom `-ios-*` CSS properties (e.g.
 ```
 .
 ├── theme/
-│   ├── KakaoTalk.css          # the stylesheet (edit colors here)
+│   ├── KakaoTalkTheme.css          # the stylesheet (edit colors here)
 │   └── Images/                # generated PNG assets
 ├── scripts/
 │   ├── generate_images.py     # draws the bunny bubbles + backgrounds (Pillow)
@@ -67,7 +67,7 @@ pip install Pillow
 This regenerates the images and produces **`dist/PastelBunny.ktheme`**.
 
 > Tip: to package by hand instead, zip the **contents** of `theme/` (so that
-> `KakaoTalk.css` and `Images/` are at the zip root) and rename the `.zip` to
+> `KakaoTalkTheme.css` and `Images/` are at the zip root) and rename the `.zip` to
 > `.ktheme`.
 
 ---
@@ -88,7 +88,7 @@ re-import.
 
 ## Customizing
 
-- **Colors:** edit the hex values in `theme/KakaoTalk.css`.
+- **Colors:** edit the hex values in `theme/KakaoTalkTheme.css`.
 - **Bubble shape/colors:** edit the palette constants at the top of
   `scripts/generate_images.py` (`PINK`, `MINT`, ear/outline colors), then
   rerun the build.
@@ -104,7 +104,7 @@ re-import.
 KakaoTalk's **complete** iOS selector list lives in their official theme
 guide PDF (the *KakaoTalk iOS Theme User Guide*). This project implements the
 commonly-used selectors; if a KakaoTalk version renames a CSS class, update
-just the selector name in `KakaoTalk.css` — the palette and images are
+just the selector name in `KakaoTalkTheme.css` — the palette and images are
 independent of that. The `-ios-background-image-cap-insets` values on the
 bubbles control which parts stretch (the body) vs. stay fixed (the ears);
 nudge them if a long message distorts the ears.

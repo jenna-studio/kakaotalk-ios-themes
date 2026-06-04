@@ -5,7 +5,7 @@
    Receiver      : mint bunny  (chatBubbleReceived)
 
    KakaoTalk iOS themes are a .ktheme package = a ZIP that contains this
-   file (KakaoTalk.css, fixed name) at the root plus an Images/ folder.
+   file (KakaoTalkTheme.css, fixed name) at the root plus an Images/ folder.
    Styling uses Kakao's custom -ios-* CSS properties.
 
    NOTE: Kakao's full selector spec ships in their official PDF theme guide
