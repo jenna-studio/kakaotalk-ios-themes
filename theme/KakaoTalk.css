@@ -20,6 +20,7 @@ ManifestStyle {
     -ios-theme-version: "1.0.0";
     -ios-theme-author: "jenna-studio";
     -ios-theme-url: "https://github.com/jenna-studio/kakaotalk-theme";
+    -ios-theme-thumbnail-image: url(Images/thumbnail.png);
 }
 
 /* ---- Global background / text ------------------------------------------ */

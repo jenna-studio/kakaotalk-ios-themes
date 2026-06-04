@@ -25,9 +25,14 @@ PastelBunny.ktheme  (zip)
     ├── chatBubbleReceived.png    (+@2x/@3x)   mint bunny
     ├── bg_chatroom*.png                       bunny/heart/carrot pattern
     ├── bg_friends*.png / bg_chats*.png        lighter matching pattern
-    └── tab_{friends,chats,openchat,more}.png  bunny tab icons
-        + each tab_*_on.png (selected, pink)   (all +@2x/@3x)
+    ├── tab_{friends,chats,openchat,more}.png  bunny tab icons
+    │   + each tab_*_on.png (selected, pink)   (all +@2x/@3x)
+    └── thumbnail*.png                         theme-list tile
 ```
+
+The theme tile shown in KakaoTalk's theme list:
+
+![thumbnail](preview/thumbnail.png)
 
 Styling uses Kakao's custom `-ios-*` CSS properties (e.g.
 `-ios-background-image`, `-ios-text-color`).

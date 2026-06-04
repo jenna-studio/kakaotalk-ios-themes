@@ -326,7 +326,8 @@ try:
 except Exception:
     font = ImageFont.load_default()
     sfont = ImageFont.load_default()
-md.text((PW // 2, 36), "🐰 Bunny Chat", font=font, fill=TEXT_DARK, anchor="mm")
+_motif_bunny(md, PW // 2 - 92, 34, 7, (255, 120, 165, 255))
+md.text((PW // 2 + 6, 36), "Pastel Bunny", font=font, fill=TEXT_DARK, anchor="mm")
 
 def place_bubble(master, x, y, scale):
     b = master.resize((int(master.width * scale), int(master.height * scale)), Image.LANCZOS)
@@ -336,7 +337,7 @@ def place_bubble(master, x, y, scale):
 # received (mint) on left, sent (pink) on right
 b1 = place_bubble(recv, 16, 110, 0.42)
 md.text((16 + b1.width // 2, 110 + b1.height // 2 + 6),
-        "hi! 🐇", font=sfont, fill=TEXT_DARK, anchor="mm")
+        "hi there!", font=sfont, fill=TEXT_DARK, anchor="mm")
 b2 = place_bubble(sent, PW - 16 - int(sent.width * 0.42), 210, 0.42)
 md.text((PW - 16 - int(sent.width * 0.42) // 2 - 6, 210 + b2.height // 2 + 6),
         "hello~", font=sfont, fill=TEXT_DARK, anchor="mm")
@@ -364,4 +365,43 @@ for i, (nm, on) in enumerate(tab_order):
 
 mock.convert("RGB").save(os.path.join(PREVIEW_DIR, "preview.png"))
 
-print("Done. Assets in theme/Images/, preview in preview/preview.png")
+# ---- theme thumbnail (tile shown in KakaoTalk's theme list) ---------------
+print("Rendering theme thumbnail...")
+# Master at @3x; portrait tile like a mini phone screen.
+TW, TH = 540, 720
+thumb = gradient((TW, TH), BG_TOP, BG_BOT)
+thumb = cute_pattern(thumb, density=60).convert("RGBA")
+td = ImageDraw.Draw(thumb)
+
+try:
+    big = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 60)
+    sub = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 30)
+    tin = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 26)
+except Exception:
+    big = sub = tin = ImageFont.load_default()
+
+# soft rounded inner frame
+td.rounded_rectangle([18, 18, TW - 18, TH - 18], radius=42,
+                     outline=(255, 255, 255, 180), width=8)
+
+# hero: a big pink bunny bubble + a smaller mint one, overlapping
+hero = sent.resize((int(sent.width * 1.15), int(sent.height * 1.15)), Image.LANCZOS)
+thumb.alpha_composite(hero, ((TW - hero.width) // 2 + 28, 250))
+mini = recv.resize((int(recv.width * 0.72), int(recv.height * 0.72)), Image.LANCZOS)
+thumb.alpha_composite(mini, (54, 360))
+
+# decorative bunnies in the corners
+_motif_bunny(td, 70, 70, 16, (255, 130, 170, 200))
+_motif_bunny(td, TW - 80, 96, 13, (160, 210, 255, 200))
+
+# title
+td.text((TW // 2, 150), "Pastel", font=big, fill=(255, 111, 163), anchor="mm")
+td.text((TW // 2, 210), "Bunny", font=big, fill=TEXT_DARK, anchor="mm")
+td.text((TW // 2, TH - 70), "KakaoTalk theme", font=tin, fill=(150, 120, 134),
+        anchor="mm")
+
+thumb_rgb = thumb.convert("RGB")
+save_variants(thumb_rgb, "thumbnail")          # theme/Images/thumbnail*.png
+thumb_rgb.save(os.path.join(PREVIEW_DIR, "thumbnail.png"))
+
+print("Done. Assets in theme/Images/, previews in preview/")
