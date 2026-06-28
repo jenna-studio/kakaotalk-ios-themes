@@ -149,50 +149,66 @@ def fit(img, w, h, scale=1.0):
 
 
 # ===========================================================================
-# Chat bubbles (real artwork, 9-slice; cap measured from the bow/tail)
+# Chat bubbles -- a clean rounded-ellipse body (white, thick black outline) with
+# the REAL bow on the top corner.  Both bubbles use the IDENTICAL shape, so the
+# sender/receiver geometry matches exactly; only the bow (colour + side) differs.
+# Shipped as 9-slice; the cap contains the bow + the corner radius, so nothing
+# distorts when KakaoTalk stretches the middle to fit the text.
 # ===========================================================================
 print("bubbles...")
-# Canonical bubble size (@3x). Receiver = real bubble; sender = mirrored + burgundy.
-BUB3_W = 192
-scale3 = BUB3_W / BUBBLE.width
-BUB3_H = int(BUBBLE.height * scale3)
-recv3 = BUBBLE.resize((BUB3_W, BUB3_H), Image.LANCZOS)
-send_src = recolor_red_to(BUBBLE, BURGUNDY).transpose(Image.FLIP_LEFT_RIGHT)
-send3 = send_src.resize((BUB3_W, BUB3_H), Image.LANCZOS)
+DS = 12
+BUB_W, BUB_H = 60, 56          # 1x points (wider than tall -> elliptical)
+BODY_TOP = 14                  # 1x; headroom above the body for the bow
+OUTLINE_C = (26, 26, 26)       # matches the bow's black outline
 
-# Measure the bow's bounding box, so the 9-slice cap fully contains it and the
-# bow never distorts when KakaoTalk stretches the bubble's middle.
-_p = BUBBLE.load()
-bminx, bminy, bmaxx, bmaxy = BUBBLE.width, BUBBLE.height, 0, 0
-for y in range(BUBBLE.height):
-    for x in range(BUBBLE.width):
-        r, g, b, a = _p[x, y]
-        if a > 120 and r > 150 and g < 120 and b < 120:
-            bminx = min(bminx, x); bmaxx = max(bmaxx, x)
-            bminy = min(bminy, y); bmaxy = max(bmaxy, y)
-# right cap must reach the bow's left edge; top cap must reach the bow's bottom.
-cap_x_frac = min(0.46, (BUBBLE.width - bminx) / BUBBLE.width + 0.03)
-cap_y_frac = min(0.46, bmaxy / BUBBLE.height + 0.03)
-CAP1X = max(14, int(cap_x_frac * BUB3_W / 3))   # 1x px for the CSS
-CAP1Y = max(14, int(cap_y_frac * BUB3_H / 3))
+def _bubble_master(bow_img, body_fill):
+    W, H = BUB_W * DS, BUB_H * DS
+    im = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    d = ImageDraw.Draw(im)
+    lw = int(2.6 * DS)
+    body = [2 * DS, BODY_TOP * DS, W - 2 * DS, H - 2 * DS]
+    radius = (body[3] - body[1]) // 2          # half-height -> smooth ellipse ends
+    d.rounded_rectangle(body, radius=radius, fill=body_fill,
+                        outline=OUTLINE_C, width=lw)
+    bow = bow_img.copy()
+    bow.thumbnail((int(22 * DS), int(22 * DS)), Image.LANCZOS)
+    bx = (W - 2 * DS) - int(bow.width * 0.74)
+    by = BODY_TOP * DS - int(bow.height * 0.55)
+    im.alpha_composite(bow, (bx, by))
+    return im, (bx, by + bow.height)
 
-def write_bubble(prefix, art3):
-    two = art3.resize((BUB3_W * 2 // 3, BUB3_H * 2 // 3), Image.LANCZOS)
-    sel = Image.eval(art3, lambda v: v)  # placeholder (kept identical alpha)
-    # selected = same art on a faint gray plate so a pressed bubble reads
-    plate = Image.new("RGBA", art3.size, (0, 0, 0, 0))
-    selected3 = Image.alpha_composite(plate, art3)
-    sel2 = selected3.resize(two.size, Image.LANCZOS)
+recv_m, (rbx, rby) = _bubble_master(BOW, WHITE)
+recv_sel_m, _ = _bubble_master(BOW, (244, 244, 244))
+# sender = exactly the same shape + bow position, only the bow colour differs
+send_m, _ = _bubble_master(BOW_BURG, WHITE)
+send_sel_m, _ = _bubble_master(BOW_BURG, (244, 244, 244))
+
+# cap (1x): cover the bow (horizontally + vertically) and the corner radius
+RADIUS1 = (BUB_H - BODY_TOP - 2) // 2
+CAP1X = max(RADIUS1 + 2, int((BUB_W * DS - rbx) / DS) + 1)
+CAP1Y = max(RADIUS1 + 2, int(rby / DS) + 1)
+
+def write_bubble(prefix, master, sel_master):
+    two = (BUB_W * 2, BUB_H * 2)
+    three = (BUB_W * 3, BUB_H * 3)
+    n2 = master.resize(two, Image.LANCZOS)
+    n3 = master.resize(three, Image.LANCZOS)
+    s2 = sel_master.resize(two, Image.LANCZOS)
+    s3 = sel_master.resize(three, Image.LANCZOS)
     for v in ("01", "02"):
-        save_img(two, f"{prefix}{v}.png")
-        save_img(two, f"{prefix}{v}@2x.png")
-        save_img(art3, f"{prefix}{v}@3x.png")
-        save_img(sel2, f"{prefix}{v}Selected.png")
-        save_img(sel2, f"{prefix}{v}Selected@2x.png")
-        save_img(selected3, f"{prefix}{v}Selected@3x.png")
+        save_img(n2, f"{prefix}{v}.png")
+        save_img(n2, f"{prefix}{v}@2x.png")
+        save_img(n3, f"{prefix}{v}@3x.png")
+        save_img(s2, f"{prefix}{v}Selected.png")
+        save_img(s2, f"{prefix}{v}Selected@2x.png")
+        save_img(s3, f"{prefix}{v}Selected@3x.png")
 
-write_bubble("chatroomBubbleReceive", recv3)
-write_bubble("chatroomBubbleSend", send3)
+write_bubble("chatroomBubbleReceive", recv_m, recv_sel_m)
+write_bubble("chatroomBubbleSend", send_m, send_sel_m)
+
+# @3x art for the preview / stretch-proof below
+recv3 = recv_m.resize((BUB_W * 3, BUB_H * 3), Image.LANCZOS)
+send3 = send_m.resize((BUB_W * 3, BUB_H * 3), Image.LANCZOS)
 
 
 # ===========================================================================
@@ -357,7 +373,7 @@ cap3y = int(CAP1Y * 3)
 
 # (a) stretch proof
 verify = Image.new("RGBA", (820, 300), WHITE + (255,))
-for i, (w, h) in enumerate([(BUB3_W, BUB3_H), (260, BUB3_H), (260, 150), (150, 150)]):
+for i, (w, h) in enumerate([(recv3.width, recv3.height), (260, recv3.height), (260, 150), (150, 150)]):
     verify.alpha_composite(nine_slice(recv3, cap3x, cap3y, w, h), (12 + i * 200, 20))
 verify.convert("RGB").save(os.path.join(PREV, "verify_stretch.png"))
 
