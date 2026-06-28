@@ -120,21 +120,19 @@ def crop_bow(bubble):
             if a and min(r, g, b) > 188:        # near-white -> transparent
                 cp[x, y] = (r, g, b, 0)
     # Remove the two thin black tails (left + bottom-right) where the bow used to
-    # attach to the bubble outline: keep only black that hugs the red bow, i.e.
-    # within ~outline-thickness of a red pixel. Stubs jut farther out -> dropped.
-    red = Image.new("L", crop.size, 0)
-    rp = red.load()
+    # attach to the bubble outline -- WITHOUT eating the bow's own outline.
+    # Morphological opening on the whole bow shape: the loops+knot+outline form a
+    # thick solid blob that survives, while the thin tails (narrower than the
+    # kernel) are removed. We then keep the original pixels under that mask, so
+    # the bow outline stays exactly as-is.
+    mask = crop.split()[-1].point(lambda v: 255 if v > 40 else 0)
+    E = max(3, int(crop.width * 0.045))         # > half the tail width
+    opened = mask.filter(ImageFilter.MinFilter(2 * E + 1)) \
+                 .filter(ImageFilter.MaxFilter(2 * E + 1))
+    op = opened.load()
     for y in range(crop.height):
         for x in range(crop.width):
-            r, g, b, a = cp[x, y]
-            if a and r > 150 and g < 120 and b < 120:
-                rp[x, y] = 255
-    T = max(6, int(crop.width * 0.055))         # keep red + the outline around it
-    keep = red.filter(ImageFilter.MaxFilter(2 * T + 1))
-    kp = keep.load()
-    for y in range(crop.height):
-        for x in range(crop.width):
-            if kp[x, y] == 0:
+            if op[x, y] == 0:
                 r, g, b, a = cp[x, y]
                 cp[x, y] = (r, g, b, 0)
     return trim(crop)
