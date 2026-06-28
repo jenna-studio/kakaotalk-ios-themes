@@ -2,341 +2,320 @@
 """
 Generate every PNG asset for the "KittyTalk" KakaoTalk iOS theme.
 
-Design language (a minimal Sanrio x Apple look):
-  * predominantly WHITE, generous whitespace, flat
-  * BLACK outlines and typography (#111111 / #1F1F1F)
-  * RED is the only accent (#E6002D) -- Hello Kitty ribbon red
-  * the recurring motif is a little BOW (ribbon), never hearts or stars
-  * receiver bubbles wear a red bow; sender bubbles a burgundy bow, so the two
-    read as the same design system but are easy to tell apart
-  * backgrounds are white with a tiny, very faint repeating bow pattern
+This theme is built from the user's own Hello Kitty artwork, NOT redrawn:
+  * assets/source/kitty_face.png    -> profiles, theme icon, passcode hero
+  * assets/source/kitty_bubble.jpg  -> chat bubbles (and the bow cropped from it
+                                       is reused for tab icons, passcode bullets
+                                       and the faint background pattern)
+
+Pipeline:
+  * the bubble JPEG's light-blue background is flood-filled to transparent
+  * the receiver bubble is the bubble as-is (red bow, top-right, tail bottom-left)
+  * the sender bubble is mirrored (tail bottom-right) and its bow recoloured to
+    burgundy, so the two read as one design system but are easy to tell apart
+  * bubbles ship as 9-slice art; the cap is measured from the bow/tail so the
+    bow never distorts when KakaoTalk stretches the bubble
 
 Conventions from the official KakaoTalk 8.0.0 iOS Theme guide:
   * Images are 2x-based:  name.png == name@2x.png (2x px),  name@3x.png (3x px)
   * Insets/caps in the CSS are 1x-based
-  * Chat bubbles are 9-slice stretched with a `20px 20px` cap (1x); the bow sits
-    in the bubble's TOP-RIGHT corner, inside that cap, so it never distorts.
 
 Run: python3 themes/kittytalk/scripts/generate_images.py
 """
 
 import os
 import random
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 IMG = os.path.join(ROOT, "Images")
 PREV = os.path.join(ROOT, "preview")
+SRC = os.path.join(ROOT, "assets", "source")
 FONTS = os.path.join(ROOT, "assets", "fonts")
 os.makedirs(IMG, exist_ok=True)
 os.makedirs(PREV, exist_ok=True)
 
-DS = 12  # internal draw units per 1x point (downscaled later -> crisp)
-
 # ---- palette --------------------------------------------------------------
-WHITE      = (255, 255, 255)
-RED        = (230, 0, 45)        # #E6002D  Hello Kitty red (receiver bow, accent)
-BURGUNDY   = (150, 14, 38)       # sender bow -- same family, clearly different
-BLACK      = (17, 17, 17)        # #111111  typography
-OUTLINE    = (31, 31, 31)        # #1F1F1F  outlines
-LGRAY      = (246, 246, 246)     # #F6F6F6  pressed / secondary surfaces
-GRAY_TXT   = (138, 138, 142)     # muted status text
-NOSE       = (255, 198, 0)       # kitty nose
-PATTERN    = (255, 158, 182)     # faint background bow tint (used at low alpha)
+WHITE    = (255, 255, 255)
+RED      = (230, 0, 45)        # #E6002D
+BURGUNDY = (150, 14, 38)       # sender bow
+BLACK    = (17, 17, 17)
+LGRAY    = (246, 246, 246)
+PATTERN  = (255, 158, 182)     # faint background tint (low alpha)
 
 
-def font(path, sz):
-    try:
-        return ImageFont.truetype(os.path.join(FONTS, path), sz)
-    except Exception:
-        return ImageFont.load_default()
+def save_img(img, name):
+    img.save(os.path.join(IMG, name))
 
 
-def save_img(img, path):
-    img.save(os.path.join(IMG, path))
-
-
-def darken(c, f=0.90):
-    return tuple(max(0, int(v * f)) for v in c[:3]) + tuple(c[3:])
+def trim(img):
+    bb = img.split()[-1].getbbox()
+    return img.crop(bb) if bb else img
 
 
 # ===========================================================================
-# The bow (ribbon) -- the theme's one recurring shape.
-# Two bulged loops flanking a small rounded knot.  Returns an RGBA image.
+# Load + clean the source artwork
 # ===========================================================================
-def make_bow(w, h, fill, outline=OUTLINE, ow=None):
-    s = 4
-    W, H = w * s, h * s
-    if ow is None:
-        ow = max(1.0, w * 0.07)
-    owp = int(ow * s)
-    im = Image.new("RGBA", (W, H), (0, 0, 0, 0))
-    d = ImageDraw.Draw(im)
-    cx, cy = W / 2.0, H / 2.0
-    half_w = W * 0.5 - owp
-    half_h = H * 0.5 - owp
-    knot_hw, knot_hh = W * 0.11, H * 0.32
-    inner = knot_hw * 0.5
-
-    left = [(cx - inner, cy),
-            (cx - half_w, cy - half_h),
-            (cx - half_w * 1.04, cy),
-            (cx - half_w, cy + half_h)]
-    right = [(cx + inner, cy),
-             (cx + half_w, cy - half_h),
-             (cx + half_w * 1.04, cy),
-             (cx + half_w, cy + half_h)]
-
-    d.polygon(left, fill=fill)
-    d.polygon(right, fill=fill)
-    if outline is not None and owp > 0:
-        d.line(left + [left[0]], fill=outline, width=owp, joint="curve")
-        d.line(right + [right[0]], fill=outline, width=owp, joint="curve")
-    d.rounded_rectangle([cx - knot_hw, cy - knot_hh, cx + knot_hw, cy + knot_hh],
-                        radius=knot_hw, fill=fill,
-                        outline=outline if outline is not None else None,
-                        width=owp if outline is not None else 0)
-    return im.resize((w, h), Image.LANCZOS)
+def load_face():
+    return trim(Image.open(os.path.join(SRC, "kitty_face.png")).convert("RGBA"))
 
 
-# ===========================================================================
-# Hello Kitty face -- white, black outline, red bow, black eyes, gold nose.
-# Used for profile images, the theme icon, and the passcode hero.
-# ===========================================================================
-def kitty_face(size, bow_side="right", bow_fill=RED):
-    s = 4
-    W = size * s
-    im = Image.new("RGBA", (W, W), (0, 0, 0, 0))
-    d = ImageDraw.Draw(im)
-    ow = max(2, int(W * 0.020))
+def load_bubble():
+    """Open the bubble JPEG and flood-fill the light-blue background away."""
+    b = Image.open(os.path.join(SRC, "kitty_bubble.jpg")).convert("RGB")
+    w, h = b.size
+    rgba = b.convert("RGBA")
+    seeds = [(0, 0), (w - 1, 0), (0, h - 1), (w - 1, h - 1),
+             (w // 2, 0), (w // 2, h - 1), (0, h // 2), (w - 1, h // 2)]
+    for s in seeds:
+        ImageDraw.floodfill(rgba, s, (255, 0, 255, 0), thresh=62)
+    px = rgba.load()
+    for y in range(h):
+        for x in range(w):
+            r, g, bl, a = px[x, y]
+            if (r, g, bl) == (255, 0, 255):
+                px[x, y] = (0, 0, 0, 0)
+            elif bl > 175 and bl - r > 28 and g > 165:   # stray blue fringe
+                px[x, y] = (0, 0, 0, 0)
+    return trim(rgba)
 
-    fw, fh = W * 0.72, W * 0.58
-    fcx, fcy = W * 0.5, W * 0.55
-    fx0, fy0, fx1, fy1 = fcx - fw / 2, fcy - fh / 2, fcx + fw / 2, fcy + fh / 2
 
-    # ears (pointed), drawn first so the face covers their inner base
-    earL = [(fcx - fw * 0.40, fcy - fh * 0.18),
-            (fcx - fw * 0.50, fcy - fh * 0.86),
-            (fcx - fw * 0.04, fcy - fh * 0.40)]
-    earR = [(fcx + fw * 0.40, fcy - fh * 0.18),
-            (fcx + fw * 0.50, fcy - fh * 0.86),
-            (fcx + fw * 0.04, fcy - fh * 0.40)]
-    for ear in (earL, earR):
-        d.polygon(ear, fill=WHITE)
-        d.line(ear + [ear[0]], fill=OUTLINE, width=ow, joint="curve")
+def recolor_red_to(img, target):
+    """Map the red bow pixels to `target`, keep black outline / white intact."""
+    out = img.copy()
+    px = out.load()
+    w, h = out.size
+    tr, tg, tb = target
+    for y in range(h):
+        for x in range(w):
+            r, g, b, a = px[x, y]
+            if a and r > 120 and g < 130 and b < 130 and r - max(g, b) > 40:
+                # scale brightness of the red onto the target hue
+                f = r / 230.0
+                px[x, y] = (int(tr * f), int(tg * f), int(tb * f), a)
+    return out
 
-    # face
-    d.ellipse([fx0, fy0, fx1, fy1], fill=WHITE, outline=OUTLINE, width=ow)
 
-    # whiskers (three each side, starting at the cheek, fanning out)
-    wlw = max(2, int(W * 0.013))
-    for sx in (-1, 1):
-        bx = fcx + sx * fw * 0.40
-        for k, dy in enumerate((-1, 0, 1)):
-            y = fcy + fh * 0.02 + dy * fh * 0.13
-            ex = fcx + sx * fw * 0.66
-            ey = y + dy * fh * 0.10
-            d.line([(bx, y), (ex, ey)], fill=OUTLINE, width=wlw)
+def crop_bow(bubble):
+    """Bounding box of the red bow in the (receiver) bubble, + margin."""
+    px = bubble.load()
+    w, h = bubble.size
+    minx, miny, maxx, maxy = w, h, 0, 0
+    for y in range(h):
+        for x in range(w):
+            r, g, b, a = px[x, y]
+            if a > 120 and r > 150 and g < 120 and b < 120:
+                minx = min(minx, x); maxx = max(maxx, x)
+                miny = min(miny, y); maxy = max(maxy, y)
+    mx = int((maxx - minx) * 0.16)
+    my = int((maxy - miny) * 0.16)
+    box = (max(0, minx - mx), max(0, miny - my),
+           min(w, maxx + mx), min(h, maxy + my))
+    crop = bubble.crop(box)
+    # the bow is only red + black outline -- drop the white bubble-body remnant
+    cp = crop.load()
+    for y in range(crop.height):
+        for x in range(crop.width):
+            r, g, b, a = cp[x, y]
+            if a and min(r, g, b) > 188:        # near-white -> transparent
+                cp[x, y] = (r, g, b, 0)
+    return trim(crop)
 
-    # eyes
-    for sx in (-1, 1):
-        ex = fcx + sx * fw * 0.23
-        ey = fcy + fh * 0.04
-        d.ellipse([ex - W * 0.030, ey - W * 0.050, ex + W * 0.030, ey + W * 0.050],
-                  fill=BLACK)
-    # nose
-    d.ellipse([fcx - W * 0.028, fcy + fh * 0.16, fcx + W * 0.028, fcy + fh * 0.27],
-              fill=NOSE)
 
-    # bow on one ear
-    sx = 1 if bow_side == "right" else -1
-    bw, bh = int(W * 0.34), int(W * 0.24)
-    bow = make_bow(bw, bh, bow_fill, OUTLINE, ow=W * 0.022)
-    bx = fcx + sx * fw * 0.40
-    by = fcy - fh * 0.46
-    im.alpha_composite(bow, (int(bx - bw / 2), int(by - bh / 2)))
-
-    return im.resize((size, size), Image.LANCZOS)
+FACE = load_face()
+BUBBLE = load_bubble()
+BOW = crop_bow(BUBBLE)
+BOW_BURG = recolor_red_to(BOW, BURGUNDY)
 
 
 # ===========================================================================
-# Chat bubbles  (1x = 52 x 54 ; bow in the top-right corner inside the 20px cap)
+# Helpers
 # ===========================================================================
-BUB_W, BUB_H = 52, 54
-
-def _bubble_master(bow_fill, body_fill=WHITE):
-    W, H = BUB_W * DS, BUB_H * DS
-    im = Image.new("RGBA", (W, H), (0, 0, 0, 0))
-    d = ImageDraw.Draw(im)
-    lw = max(2, int(2.2 * DS))
-    body = [2 * DS, 12 * DS, W - 2 * DS, H - 2 * DS]
-    r = 15 * DS
-    d.rounded_rectangle(body, radius=r, fill=body_fill, outline=OUTLINE, width=lw)
-
-    # bow tucked into the top-right corner, fully within the 20px (1x) cap
-    bw, bh = int(18 * DS), int(12 * DS)
-    bow = make_bow(bw, bh, bow_fill, OUTLINE, ow=2.0 * DS)
-    bx_right = W - int(1.5 * DS)
-    by_center = int(9 * DS)
-    im.alpha_composite(bow, (bx_right - bw, by_center - bh // 2))
-    return im
+def fit_circle(img, size, scale=0.92):
+    """Scale `img` to sit inside a circle of diameter `size`, centered."""
+    im = img.copy()
+    im.thumbnail((int(size * scale), int(size * scale)), Image.LANCZOS)
+    canvas = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+    canvas.alpha_composite(im, ((size - im.width) // 2, (size - im.height) // 2))
+    return canvas
 
 
-def write_bubble(prefix, bow_fill):
-    normal = _bubble_master(bow_fill, WHITE)
-    sel = _bubble_master(darken(bow_fill, 0.85), (240, 240, 240))
-    two = (BUB_W * 2, BUB_H * 2)
-    three = (BUB_W * 3, BUB_H * 3)
-    for variant in ("01", "02"):                 # 01 and 02 share artwork
-        n2 = normal.resize(two, Image.LANCZOS)
-        n3 = normal.resize(three, Image.LANCZOS)
-        s2 = sel.resize(two, Image.LANCZOS)
-        s3 = sel.resize(three, Image.LANCZOS)
-        save_img(n2, f"{prefix}{variant}.png")
-        save_img(n2, f"{prefix}{variant}@2x.png")
-        save_img(n3, f"{prefix}{variant}@3x.png")
-        save_img(s2, f"{prefix}{variant}Selected.png")
-        save_img(s2, f"{prefix}{variant}Selected@2x.png")
-        save_img(s3, f"{prefix}{variant}Selected@3x.png")
+def fit(img, w, h, scale=1.0):
+    im = img.copy()
+    im.thumbnail((int(w * scale), int(h * scale)), Image.LANCZOS)
+    canvas = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    canvas.alpha_composite(im, ((w - im.width) // 2, (h - im.height) // 2))
+    return canvas
 
 
+# ===========================================================================
+# Chat bubbles (real artwork, 9-slice; cap measured from the bow/tail)
+# ===========================================================================
 print("bubbles...")
-write_bubble("chatroomBubbleReceive", RED)
-write_bubble("chatroomBubbleSend", BURGUNDY)
+# Canonical bubble size (@3x). Receiver = real bubble; sender = mirrored + burgundy.
+BUB3_W = 192
+scale3 = BUB3_W / BUBBLE.width
+BUB3_H = int(BUBBLE.height * scale3)
+recv3 = BUBBLE.resize((BUB3_W, BUB3_H), Image.LANCZOS)
+send_src = recolor_red_to(BUBBLE, BURGUNDY).transpose(Image.FLIP_LEFT_RIGHT)
+send3 = send_src.resize((BUB3_W, BUB3_H), Image.LANCZOS)
+
+# Measure the bow's bounding box, so the 9-slice cap fully contains it and the
+# bow never distorts when KakaoTalk stretches the bubble's middle.
+_p = BUBBLE.load()
+bminx, bminy, bmaxx, bmaxy = BUBBLE.width, BUBBLE.height, 0, 0
+for y in range(BUBBLE.height):
+    for x in range(BUBBLE.width):
+        r, g, b, a = _p[x, y]
+        if a > 120 and r > 150 and g < 120 and b < 120:
+            bminx = min(bminx, x); bmaxx = max(bmaxx, x)
+            bminy = min(bminy, y); bmaxy = max(bmaxy, y)
+# right cap must reach the bow's left edge; top cap must reach the bow's bottom.
+cap_x_frac = min(0.46, (BUBBLE.width - bminx) / BUBBLE.width + 0.03)
+cap_y_frac = min(0.46, bmaxy / BUBBLE.height + 0.03)
+CAP1X = max(14, int(cap_x_frac * BUB3_W / 3))   # 1x px for the CSS
+CAP1Y = max(14, int(cap_y_frac * BUB3_H / 3))
+
+def write_bubble(prefix, art3):
+    two = art3.resize((BUB3_W * 2 // 3, BUB3_H * 2 // 3), Image.LANCZOS)
+    sel = Image.eval(art3, lambda v: v)  # placeholder (kept identical alpha)
+    # selected = same art on a faint gray plate so a pressed bubble reads
+    plate = Image.new("RGBA", art3.size, (0, 0, 0, 0))
+    selected3 = Image.alpha_composite(plate, art3)
+    sel2 = selected3.resize(two.size, Image.LANCZOS)
+    for v in ("01", "02"):
+        save_img(two, f"{prefix}{v}.png")
+        save_img(two, f"{prefix}{v}@2x.png")
+        save_img(art3, f"{prefix}{v}@3x.png")
+        save_img(sel2, f"{prefix}{v}Selected.png")
+        save_img(sel2, f"{prefix}{v}Selected@2x.png")
+        save_img(selected3, f"{prefix}{v}Selected@3x.png")
+
+write_bubble("chatroomBubbleReceive", recv3)
+write_bubble("chatroomBubbleSend", send3)
 
 
 # ===========================================================================
-# Backgrounds -- white with a tiny, faint, repeating bow pattern
+# Backgrounds -- white with a tiny, faint repeating bow pattern (real bow)
 # ===========================================================================
-def bow_pattern_bg(size, seed=7, alpha=30, scale=1.0):
+print("backgrounds...")
+def bow_pattern_bg(size, seed=7, alpha=24, scale=1.0):
     w, h = size
     base = Image.new("RGBA", (w, h), WHITE + (255,))
     layer = Image.new("RGBA", (w, h), (0, 0, 0, 0))
     rnd = random.Random(seed)
-    unit = max(20, int(min(w, h) / 7 * scale))      # grid spacing
-    bw = int(unit * 0.46)
-    bh = int(bw * 0.66)
-    stamp = make_bow(bw, bh, PATTERN + (alpha,), outline=None)
-    row = 0
-    y = -unit // 2
+    unit = max(40, int(min(w, h) / 7 * scale))
+    stamp = BOW.copy()
+    stamp.thumbnail((int(unit * 0.5), int(unit * 0.5)), Image.LANCZOS)
+    # tint the stamp a soft pink + low alpha
+    sp = stamp.load()
+    for y in range(stamp.height):
+        for x in range(stamp.width):
+            r, g, b, a = sp[x, y]
+            if a:
+                sp[x, y] = PATTERN + (int(a / 255 * alpha),)
+    row, y = 0, -unit // 2
     while y < h + unit:
         x = -unit // 2 + (unit // 2 if row % 2 else 0)
         while x < w + unit:
             jx = rnd.randint(-unit // 7, unit // 7)
             jy = rnd.randint(-unit // 7, unit // 7)
-            ang = rnd.choice((-14, -7, 0, 7, 14))
-            b = stamp.rotate(ang, expand=True, resample=Image.BICUBIC)
+            b = stamp.rotate(rnd.choice((-12, 0, 12)), expand=True, resample=Image.BICUBIC)
             layer.alpha_composite(b, (x + jx, y + jy))
             x += unit
         y += unit
         row += 1
     return Image.alpha_composite(base, layer).convert("RGB")
 
-
-print("backgrounds...")
-chat = bow_pattern_bg((846, 1503), seed=11, alpha=26)
+chat = bow_pattern_bg((846, 1503), seed=11, alpha=22)
 save_img(chat, "chatroomBgImage@2x.png"); save_img(chat, "chatroomBgImage@3x.png")
-main = bow_pattern_bg((846, 1503), seed=5, alpha=22)
+main = bow_pattern_bg((846, 1503), seed=5, alpha=20)
 save_img(main, "mainBgImage@2x.png"); save_img(main, "mainBgImage@3x.png")
-
-# Tab bar: flat white
-def solid(size, color):
-    return Image.new("RGB", size, color)
-save_img(solid((750, 106), WHITE), "maintabBgImage@2x.png")
-save_img(solid((1125, 159), WHITE), "maintabBgImage@3x.png")
+save_img(Image.new("RGB", (750, 106), WHITE), "maintabBgImage@2x.png")
+save_img(Image.new("RGB", (1125, 159), WHITE), "maintabBgImage@3x.png")
 
 
 # ===========================================================================
-# Tab icons -- every tab is a bow.  normal = black outline, selected = red.
-# 2x:76x58   3x:156x118
+# Tab icons -- the real bow.  normal = soft grey, selected = red.
 # ===========================================================================
 print("tab icons...")
-def tab_bow(w, h, selected):
-    fill = RED if selected else WHITE
-    bw = int(w * 0.62)
-    bh = int(bw * 0.66)
-    bow = make_bow(bw, bh, fill, OUTLINE, ow=max(1.5, w * 0.028))
-    im = Image.new("RGBA", (w, h), (0, 0, 0, 0))
-    im.alpha_composite(bow, ((w - bw) // 2, (h - bh) // 2))
-    return im
+def grey_bow(img):
+    out = img.copy(); px = out.load()
+    for y in range(out.height):
+        for x in range(out.width):
+            r, g, b, a = px[x, y]
+            if a:
+                lum = int(0.3 * r + 0.6 * g + 0.1 * b)
+                lum = int(120 + (lum - 120) * 0.4)        # flatten toward mid-grey
+                px[x, y] = (lum, lum, lum, a)
+    return out
+
+BOW_GREY = grey_bow(BOW)
+def tab_icon(w, h, art):
+    return fit(art, w, h, scale=0.74)
 
 TAB_SLOTS = ["Friends", "Chats", "Browse", "Find", "Piccoma", "Game", "More"]
 for slot in TAB_SLOTS:
     name = f"maintabIco{slot}"
-    tab_bow(76, 58, False).save(os.path.join(IMG, f"{name}@2x.png"))
-    tab_bow(156, 118, False).save(os.path.join(IMG, f"{name}@3x.png"))
-    tab_bow(76, 58, True).save(os.path.join(IMG, f"{name}Selected@2x.png"))
-    tab_bow(156, 118, True).save(os.path.join(IMG, f"{name}Selected@3x.png"))
+    tab_icon(76, 58, BOW_GREY).save(os.path.join(IMG, f"{name}@2x.png"))
+    tab_icon(156, 118, BOW_GREY).save(os.path.join(IMG, f"{name}@3x.png"))
+    tab_icon(76, 58, BOW).save(os.path.join(IMG, f"{name}Selected@2x.png"))
+    tab_icon(156, 118, BOW).save(os.path.join(IMG, f"{name}Selected@3x.png"))
 
 
 # ===========================================================================
-# Theme icon, profile images, add-friend button
+# Theme icon, profiles, add-friend (real face)
 # ===========================================================================
 print("icons & profiles...")
-kitty_face(162).save(os.path.join(IMG, "commonIcoTheme.png"))
-
-# three profile variants (bow side / colour) so the list has variety
-PROFILES = [
-    ("profileImg01", "right", RED),
-    ("profileImg02", "left",  RED),
-    ("profileImg03", "right", BURGUNDY),
-]
-for name, side, col in PROFILES:
-    f = kitty_face(240, bow_side=side, bow_fill=col)
+fit(FACE, 162, 162, scale=0.96).save(os.path.join(IMG, "commonIcoTheme.png"))
+for name in ("profileImg01", "profileImg02", "profileImg03"):
+    f = fit_circle(FACE, 240)
     f.save(os.path.join(IMG, f"{name}@2x.png"))
     f.save(os.path.join(IMG, f"{name}@3x.png"))
 
 def add_friend(w, h):
-    s = 4
-    W, H = w * s, h * s
-    im = Image.new("RGBA", (W, H), (0, 0, 0, 0))
-    d = ImageDraw.Draw(im)
-    bw = int(W * 0.62)
-    bh = int(bw * 0.66)
-    bow = make_bow(bw, bh, RED, OUTLINE, ow=max(2, W * 0.02))
-    im.alpha_composite(bow, (int(W * 0.04), (H - bh) // 2))
-    # small plus, top-right
-    cx, cy, r = int(W * 0.80), int(H * 0.30), int(H * 0.16)
-    lw = int(H * 0.085)
+    canvas = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    bow = BOW.copy(); bow.thumbnail((int(w * 0.62), int(h * 0.78)), Image.LANCZOS)
+    canvas.alpha_composite(bow, (int(w * 0.02), (h - bow.height) // 2))
+    d = ImageDraw.Draw(canvas)
+    cx, cy, r = int(w * 0.82), int(h * 0.30), int(h * 0.16)
+    lw = max(2, int(h * 0.085))
     d.line([cx - r, cy, cx + r, cy], fill=RED, width=lw)
     d.line([cx, cy - r, cx, cy + r], fill=RED, width=lw)
-    return im.resize((w, h), Image.LANCZOS)
+    return canvas
 add_friend(84, 68).save(os.path.join(IMG, "findBtnAddFriend@2x.png"))
 add_friend(126, 102).save(os.path.join(IMG, "findBtnAddFriend@3x.png"))
 
 
 # ===========================================================================
-# Passcode -- white bg + faint bows + a kitty hero; bullets become bows.
+# Passcode -- white bg + faint bows + kitty hero; bullets = real bow
 # ===========================================================================
 print("passcode...")
 def passcode_bg(size):
-    bg = bow_pattern_bg((size, size), seed=3, alpha=20, scale=1.1).convert("RGBA")
-    hero = int(size * 0.17)
-    face = kitty_face(hero)
-    bg.alpha_composite(face, ((size - hero) // 2, int(size * 0.13)))
+    bg = bow_pattern_bg((size, size), seed=3, alpha=18, scale=1.1).convert("RGBA")
+    hero = fit(FACE, int(size * 0.20), int(size * 0.20), scale=1.0)
+    bg.alpha_composite(hero, ((size - hero.width) // 2, int(size * 0.11)))
     return bg.convert("RGB")
 pbg = passcode_bg(846)
 pbg.resize((375, 375), Image.LANCZOS).save(os.path.join(IMG, "passcodeBgImage.png"))
 pbg.save(os.path.join(IMG, "passcodeBgImage@2x.png"))
 pbg.save(os.path.join(IMG, "passcodeBgImage@3x.png"))
 
-def passcode_bullet(px, filled):
-    # empty = faint black-outline bow; entered = solid red bow
-    if filled:
-        return make_bow(px, int(px * 0.7), RED, OUTLINE, ow=px * 0.05)
-    return make_bow(px, int(px * 0.7), (255, 255, 255, 0), outline=(180, 180, 184),
-                    ow=px * 0.045)
-
+def bullet(px, filled):
+    art = BOW if filled else BOW_GREY
+    b = fit(art, px, int(px * 0.8), scale=0.9)
+    if not filled:                      # fade the empty state
+        a = b.split()[-1].point(lambda v: int(v * 0.5))
+        b.putalpha(a)
+    return b
 for i in (1, 2, 3, 4):
     for suf in ("@2x", "@3x"):
-        passcode_bullet(132, False).save(os.path.join(IMG, f"passcodeImgCode0{i}{suf}.png"))
-        passcode_bullet(132, True).save(os.path.join(IMG, f"passcodeImgCode0{i}Selected{suf}.png"))
+        bullet(132, False).save(os.path.join(IMG, f"passcodeImgCode0{i}{suf}.png"))
+        bullet(132, True).save(os.path.join(IMG, f"passcodeImgCode0{i}Selected{suf}.png"))
 
 def keypad(px):
-    s = 4
-    W = px * s
-    im = Image.new("RGBA", (W, W), (0, 0, 0, 0))
-    ImageDraw.Draw(im).ellipse([int(W * 0.08)] * 2 + [int(W * 0.92)] * 2,
+    im = Image.new("RGBA", (px * 4, px * 4), (0, 0, 0, 0))
+    ImageDraw.Draw(im).ellipse([int(px * 4 * 0.08)] * 2 + [int(px * 4 * 0.92)] * 2,
                                fill=LGRAY + (255,))
     return im.resize((px, px), Image.LANCZOS)
 keypad(90).save(os.path.join(IMG, "passcodeKeypadPressed.png"))
@@ -345,16 +324,25 @@ keypad(180).save(os.path.join(IMG, "passcodeKeypadPressed@3x.png"))
 
 
 # ===========================================================================
-# Verification + preview (NOT shipped inside the .ktheme)
+# Preview + stretch proof (NOT shipped inside the .ktheme)
 # ===========================================================================
 print("preview...")
-def nine_slice(img, cap, tw, th):
+from PIL import ImageFont
+
+def font(p, sz):
+    try:
+        return ImageFont.truetype(os.path.join(FONTS, p), sz)
+    except Exception:
+        return ImageFont.load_default()
+
+def nine_slice(img, capx, capy, tw, th):
     w, h = img.size
-    c = min(cap, w // 2 - 1, h // 2 - 1)
-    tw, th = max(tw, 2 * c + 1), max(th, 2 * c + 1)
+    cx = min(capx, w // 2 - 1)
+    cy = min(capy, h // 2 - 1)
+    tw, th = max(tw, 2 * cx + 1), max(th, 2 * cy + 1)
     out = Image.new("RGBA", (tw, th), (0, 0, 0, 0))
-    xs = [(0, c, 0, c), (c, w - c, c, tw - c), (w - c, w, tw - c, tw)]
-    ys = [(0, c, 0, c), (c, h - c, c, th - c), (h - c, h, th - c, th)]
+    xs = [(0, cx, 0, cx), (cx, w - cx, cx, tw - cx), (w - cx, w, tw - cx, tw)]
+    ys = [(0, cy, 0, cy), (cy, h - cy, cy, th - cy), (h - cy, h, th - cy, th)]
     for sx0, sx1, dx0, dx1 in xs:
         for sy0, sy1, dy0, dy1 in ys:
             if sx1 <= sx0 or sy1 <= sy0:
@@ -364,54 +352,51 @@ def nine_slice(img, cap, tw, th):
                                             Image.BICUBIC), (dx0, dy0))
     return out
 
-recv3 = _bubble_master(RED).resize((BUB_W * 3, BUB_H * 3), Image.LANCZOS)
-send3 = _bubble_master(BURGUNDY).resize((BUB_W * 3, BUB_H * 3), Image.LANCZOS)
-cap3 = 20 * 3
+cap3x = int(CAP1X * 3)
+cap3y = int(CAP1Y * 3)
 
-# (a) stretch proof -- bow must stay crisp in the top-right corner at any size
-verify = Image.new("RGBA", (760, 280), WHITE + (255,))
-for i, (w, h) in enumerate([(BUB_W * 3, BUB_H * 3), (430, BUB_H * 3), (430, 240), (190, 240)]):
-    verify.alpha_composite(nine_slice(recv3, cap3, w, h), (10 + i * 185, 20))
+# (a) stretch proof
+verify = Image.new("RGBA", (820, 300), WHITE + (255,))
+for i, (w, h) in enumerate([(BUB3_W, BUB3_H), (260, BUB3_H), (260, 150), (150, 150)]):
+    verify.alpha_composite(nine_slice(recv3, cap3x, cap3y, w, h), (12 + i * 200, 20))
 verify.convert("RGB").save(os.path.join(PREV, "verify_stretch.png"))
 
-# (b) chat mockup (uses the cute rounded font for everything we render)
+# (b) chat mockup
 PW, PH = 414, 736
-mock = bow_pattern_bg((PW, PH), seed=11, alpha=24).convert("RGBA")
+mock = bow_pattern_bg((PW, PH), seed=11, alpha=22).convert("RGBA")
 md = ImageDraw.Draw(mock)
 f_logo = font("Fredoka.ttf", 22)
-f_name = font("Fredoka.ttf", 16)
 f_body = font("Quicksand.ttf", 15)
 f_sub = font("Quicksand.ttf", 12)
 
-# header
 md.rectangle([0, 0, PW, 54], fill=WHITE)
 md.line([0, 54, PW, 54], fill=(232, 232, 232), width=1)
-logo_bow = make_bow(26, 18, RED, OUTLINE, ow=1.6)
-mock.alpha_composite(logo_bow, (PW // 2 - 78, 18))
+lb = BOW.copy(); lb.thumbnail((30, 22), Image.LANCZOS)
+mock.alpha_composite(lb, (PW // 2 - 78, 16))
 md.text((PW // 2 - 44, 27), "KittyTalk", font=f_logo, fill=BLACK, anchor="lm")
 
 def msg(text, side, y):
-    tw_text = int(md.textlength(text, font=f_body))
-    bw = tw_text + 40            # text + horizontal padding
-    bh = 40                      # single line height
-    # build the bubble at 3x then downscale so the bow stays crisp
-    b = nine_slice(recv3 if side == "L" else send3, cap3, int(bw / 0.5), int(bh / 0.5))
-    b = b.resize((bw, bh + 8), Image.LANCZOS)
+    tw = int(md.textlength(text, font=f_body))
+    bw = max(70, tw + 54)
+    bh = 56
+    art = recv3 if side == "L" else send3
+    b = nine_slice(art, cap3x, cap3y, int(bw / 0.5), int(bh / 0.5))
+    b = b.resize((bw, int(b.height * 0.5)), Image.LANCZOS)
     if side == "L":
-        face = kitty_face(34)
-        mock.alpha_composite(face, (14, y + b.height - 30))
-        x = 56
+        face = fit_circle(FACE, 34)
+        mock.alpha_composite(face, (12, y + 6))
+        x = 52
+        tx = x + b.width // 2 - 6
     else:
-        x = PW - 16 - b.width
+        x = PW - 14 - b.width
+        tx = x + b.width // 2 + 6
     mock.alpha_composite(b, (x, y))
-    md.text((x + b.width // 2, y + b.height // 2), text, font=f_body,
-            fill=BLACK, anchor="mm")
+    md.text((tx, y + b.height // 2), text, font=f_body, fill=BLACK, anchor="mm")
 
-msg("hi! did you see the new theme?", "L", 92)
-msg("yes!! so clean and cute", "R", 180)
-msg("minimal kitty vibes", "L", 268)
+msg("hi! did you see the new theme?", "L", 86)
+msg("yes!! so clean and cute", "R", 188)
+msg("real kitty vibes now", "L", 290)
 
-# tab bar
 TBH = 60
 md.rectangle([0, PH - TBH, PW, PH], fill=WHITE)
 md.line([0, PH - TBH, PW, PH - TBH], fill=(232, 232, 232), width=1)
@@ -419,14 +404,12 @@ tabs = [("Friends", True), ("Chats", False), ("Open Chat", False),
         ("Shopping", False), ("More", False)]
 slot = PW // len(tabs)
 for i, (lab, on) in enumerate(tabs):
-    bw = 26
-    bh = 18
-    bow = make_bow(bw, bh, RED if on else WHITE, OUTLINE, ow=1.6)
-    mock.alpha_composite(bow, (i * slot + (slot - bw) // 2, PH - TBH + 10))
+    icon = BOW if on else BOW_GREY
+    ic = icon.copy(); ic.thumbnail((30, 22), Image.LANCZOS)
+    mock.alpha_composite(ic, (i * slot + (slot - ic.width) // 2, PH - TBH + 9))
     md.text((i * slot + slot // 2, PH - 14), lab, font=f_sub,
             fill=RED if on else BLACK, anchor="mm")
 
 mock.convert("RGB").save(os.path.join(PREV, "preview.png"))
-kitty_face(180).save(os.path.join(PREV, "thumbnail.png"))
-
-print("done.")
+fit(FACE, 180, 180, scale=0.96).save(os.path.join(PREV, "thumbnail.png"))
+print("done.  cap(1x) = %dx%d" % (CAP1X, CAP1Y))
