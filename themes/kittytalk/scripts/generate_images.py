@@ -25,7 +25,7 @@ Run: python3 themes/kittytalk/scripts/generate_images.py
 
 import os
 import random
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageFilter
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 IMG = os.path.join(ROOT, "Images")
@@ -119,6 +119,24 @@ def crop_bow(bubble):
             r, g, b, a = cp[x, y]
             if a and min(r, g, b) > 188:        # near-white -> transparent
                 cp[x, y] = (r, g, b, 0)
+    # Remove the two thin black tails (left + bottom-right) where the bow used to
+    # attach to the bubble outline: keep only black that hugs the red bow, i.e.
+    # within ~outline-thickness of a red pixel. Stubs jut farther out -> dropped.
+    red = Image.new("L", crop.size, 0)
+    rp = red.load()
+    for y in range(crop.height):
+        for x in range(crop.width):
+            r, g, b, a = cp[x, y]
+            if a and r > 150 and g < 120 and b < 120:
+                rp[x, y] = 255
+    T = max(6, int(crop.width * 0.055))         # keep red + the outline around it
+    keep = red.filter(ImageFilter.MaxFilter(2 * T + 1))
+    kp = keep.load()
+    for y in range(crop.height):
+        for x in range(crop.width):
+            if kp[x, y] == 0:
+                r, g, b, a = cp[x, y]
+                cp[x, y] = (r, g, b, 0)
     return trim(crop)
 
 
@@ -157,23 +175,28 @@ def fit(img, w, h, scale=1.0):
 # ===========================================================================
 print("bubbles...")
 DS = 12
-BUB_W, BUB_H = 60, 56          # 1x points (wider than tall -> elliptical)
-BODY_TOP = 14                  # 1x; headroom above the body for the bow
+# 1x geometry. A rounded RECTANGLE (radius < half-height/width) keeps a genuine
+# straight run on every edge, so the 9-slice stays perfectly outlined whether
+# KakaoTalk stretches it horizontally (long text) OR vertically (many lines).
+BUB_W, BUB_H = 66, 58
+MARGIN = 2
+BODY_TOP = 7                   # small headroom so the bow overhangs the top edge
+RADIUS = 15                    # 1x corner radius (< straight runs on all sides)
 OUTLINE_C = (26, 26, 26)       # matches the bow's black outline
+import math
 
 def _bubble_master(bow_img, body_fill):
     W, H = BUB_W * DS, BUB_H * DS
     im = Image.new("RGBA", (W, H), (0, 0, 0, 0))
     d = ImageDraw.Draw(im)
     lw = int(2.6 * DS)
-    body = [2 * DS, BODY_TOP * DS, W - 2 * DS, H - 2 * DS]
-    radius = (body[3] - body[1]) // 2          # half-height -> smooth ellipse ends
-    d.rounded_rectangle(body, radius=radius, fill=body_fill,
+    body = [MARGIN * DS, BODY_TOP * DS, W - MARGIN * DS, H - MARGIN * DS]
+    d.rounded_rectangle(body, radius=RADIUS * DS, fill=body_fill,
                         outline=OUTLINE_C, width=lw)
     bow = bow_img.copy()
-    bow.thumbnail((int(22 * DS), int(22 * DS)), Image.LANCZOS)
-    bx = (W - 2 * DS) - int(bow.width * 0.74)
-    by = BODY_TOP * DS - int(bow.height * 0.55)
+    bow.thumbnail((int(24 * DS), int(21 * DS)), Image.LANCZOS)
+    bx = W - 1 * DS - bow.width          # tucked into the top-right corner
+    by = 0
     im.alpha_composite(bow, (bx, by))
     return im, (bx, by + bow.height)
 
@@ -183,10 +206,31 @@ recv_sel_m, _ = _bubble_master(BOW, (244, 244, 244))
 send_m, _ = _bubble_master(BOW_BURG, WHITE)
 send_sel_m, _ = _bubble_master(BOW_BURG, (244, 244, 244))
 
-# cap (1x): cover the bow (horizontally + vertically) and the corner radius
-RADIUS1 = (BUB_H - BODY_TOP - 2) // 2
-CAP1X = max(RADIUS1 + 2, int((BUB_W * DS - rbx) / DS) + 1)
-CAP1Y = max(RADIUS1 + 2, int(rby / DS) + 1)
+# Caps (1x) must contain BOTH the rounded corners and the bow, on every side.
+# corner reach: left/right need MARGIN+RADIUS; top needs BODY_TOP+RADIUS; bottom
+# needs MARGIN+RADIUS. bow reach: from the right edge to the bow's left, and from
+# the top edge to the bow's bottom.
+corner_x = MARGIN + RADIUS
+corner_y = max(BODY_TOP + RADIUS, MARGIN + RADIUS)
+bow_x = math.ceil((BUB_W * DS - rbx) / DS)
+bow_y = math.ceil(rby / DS)
+# one symmetric cap (order-independent in the CSS), covering the worst case
+CAP1 = max(corner_x, corner_y, bow_x, bow_y) + 1
+CAP1X = CAP1Y = CAP1
+assert 2 * CAP1 < BUB_W and 2 * CAP1 < BUB_H, "cap leaves no stretchable middle"
+
+# Keep the CSS cap in lock-step with the generated art: rewrite every
+# `chatroomBubble*.png' Npx Npx` in KakaoTalkTheme.css to this cap.
+import re
+css_path = os.path.join(ROOT, "KakaoTalkTheme.css")
+with open(css_path) as fh:
+    css = fh.read()
+css2 = re.sub(r"(chatroomBubble\w+\.png')\s+\d+px\s+\d+px",
+              rf"\1 {CAP1}px {CAP1}px", css)
+if css2 != css:
+    with open(css_path, "w") as fh:
+        fh.write(css2)
+    print(f"  patched CSS bubble cap -> {CAP1}px {CAP1}px")
 
 def write_bubble(prefix, master, sel_master):
     two = (BUB_W * 2, BUB_H * 2)
@@ -371,10 +415,20 @@ def nine_slice(img, capx, capy, tw, th):
 cap3x = int(CAP1X * 3)
 cap3y = int(CAP1Y * 3)
 
-# (a) stretch proof
-verify = Image.new("RGBA", (820, 300), WHITE + (255,))
-for i, (w, h) in enumerate([(recv3.width, recv3.height), (260, recv3.height), (260, 150), (150, 150)]):
-    verify.alpha_composite(nine_slice(recv3, cap3x, cap3y, w, h), (12 + i * 200, 20))
+# (a) stretch proof -- horizontal (long text), vertical (many lines), and both;
+#     the outline must stay clean in every case.
+nw, nh = recv3.width, recv3.height
+cases = [(nw, nh), (320, nh), (520, nh), (nw, 230), (nw, 360), (420, 300)]
+verify = Image.new("RGBA", (1180, 760), WHITE + (255,))
+x = 16
+y = 20
+rowh = 0
+for (w, h) in cases:
+    if x + w > 1180 - 16:
+        x = 16; y += rowh + 24; rowh = 0
+    verify.alpha_composite(nine_slice(recv3, cap3x, cap3y, w, h), (x, y))
+    x += w + 24
+    rowh = max(rowh, h)
 verify.convert("RGB").save(os.path.join(PREV, "verify_stretch.png"))
 
 # (b) chat mockup
