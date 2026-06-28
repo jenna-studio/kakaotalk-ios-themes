@@ -1,16 +1,21 @@
-# 🐰 Pastel Bunny — KakaoTalk iOS Theme
+# KakaoTalk iOS Themes
 
-A soft pastel theme for **KakaoTalk on iOS**, built to the official
-*KakaoTalk 8.0.0 iOS Theme User Guide*. The chat bubbles are little bunnies
-with two short ears:
+Custom **KakaoTalk for iOS** themes, each built to the official
+*KakaoTalk 8.0.0 iOS Theme User Guide*. Every theme ships as a reproducible
+`.ktheme` package — all PNG assets are generated from code (Pillow), so there
+are no binary art blobs to hand-edit.
 
-- **Sender bubble → pink bunny** 🩷
-- **Receiver bubble → mint bunny** 🌿
+## Themes
 
-*Friends list · Chatroom · Passcode — rendered from the actual generated assets.*
+| Theme | Folder | Look |
+|-------|--------|------|
+| 🎀 **KittyTalk** | [`themes/kittytalk`](themes/kittytalk) | Minimal Sanrio × Apple — white, black outlines, red bows |
+| 🐰 **Pastel Bunny** | [`themes/pastel-bunny`](themes/pastel-bunny) | Soft pastel bunnies — pink sender / mint receiver bubbles |
 
-The ears sit in the bubble's top corners, which fall inside the 9-slice
-stretch cap, so they never distort when KakaoTalk resizes a bubble
+<p align="center">
+  <img src="themes/kittytalk/preview/preview.png" width="320" alt="KittyTalk preview">
+  <img src="themes/pastel-bunny/preview/preview.png" width="320" alt="Pastel Bunny preview">
+</p>
 
 ---
 
@@ -25,26 +30,31 @@ root) plus an `Images/` folder. Per the official guide:
   variant.
 - **Insets/caps** in the CSS are **1×-based**, order `top left bottom right`.
 - Chat bubbles use a 9-slice cap: `'chatroomBubbleSend01.png' 20px 20px`,
-  with `-ios-title-edgeinsets` controlling text padding.
+  with `-ios-title-edgeinsets` controlling text padding. Anything inside the
+  corner cap (e.g. a bow) is preserved as-is when the bubble stretches.
 
-The CSS selectors (Manifest, `HeaderStyle-Main`, `MainViewStyle-*`,
-`TabBarStyle-Main`, `BackgroundStyle-ChatRoom`, `MessageCellStyle-Send/
-Receive`, `PasscodeStyle`, notification/share bars, …) follow the guide.
+> **Fonts:** KakaoTalk renders all in-app text in the system font — the
+> `.ktheme` format has no font property, so a theme can't replace the chat
+> font. Bundled fonts (e.g. KittyTalk's Fredoka) are used only for the
+> wordmark and preview artwork.
 
 ---
 
 ## Repository layout
 
 ```
-theme/
-  KakaoTalkTheme.css          # stylesheet (edit colors here)
-  Images/                     # generated PNG assets (@2x/@3x)
+themes/
+  <theme-name>/
+    KakaoTalkTheme.css        # stylesheet (all colors live here)
+    Images/                   # generated PNG assets (@2x/@3x)
+    manifest.json             # source metadata (not shipped in the .ktheme)
+    scripts/
+      generate_images.py      # draws every asset for this theme (Pillow)
+    preview/                  # preview.png, thumbnail.png, verify_stretch.png
+    assets/                   # source extras (e.g. fonts)
 scripts/
-  generate_images.py          # draws bunny bubbles, bg, icons, passcode (Pillow)
-  preview_pages.py            # renders preview/pages.png mockups
+  build.sh                    # build.sh [theme] -> dist/<Name>.ktheme
   analyze_theme.py            # validates a .ktheme (consistency + retina)
-  build.sh                    # packages theme/ -> dist/PastelBunny.ktheme
-preview/                      # pages.png, verify_stretch.png, thumbnail.png
 ```
 
 ---
@@ -55,10 +65,17 @@ Requires Python 3 + Pillow and `zip`.
 
 ```bash
 pip install Pillow
-./scripts/build.sh                 # -> dist/PastelBunny.ktheme
-python3 scripts/analyze_theme.py dist/PastelBunny.ktheme   # optional check
-python3 scripts/preview_pages.py   # optional: regenerate page mockups
+
+./scripts/build.sh                 # build every theme -> dist/*.ktheme
+./scripts/build.sh kittytalk       # build just one theme
+
+python3 scripts/analyze_theme.py dist/KittyTalk.ktheme   # optional check
 ```
+
+`build.sh` regenerates that theme's images, then zips `KakaoTalkTheme.css` +
+`Images/` into `dist/<ThemeName>.ktheme` (the package name comes from the
+`-kakaotalk-theme-name` in the CSS). `dist/` is git-ignored — the package is
+always reproducible from source.
 
 ---
 
@@ -67,11 +84,11 @@ python3 scripts/preview_pages.py   # optional: regenerate page mockups
 Per the official guide, custom themes install through a **Safari link**, not
 straight from the Files app:
 
-1. Upload `dist/PastelBunny.ktheme` somewhere you can download it from a URL
-   (or send it to yourself via KakaoTalk).
+1. Upload the `.ktheme` somewhere you can download it from a URL (or send it
+   to yourself via KakaoTalk).
 2. On the iPhone, open that **URL in Safari** (or tap the link).
 3. Tap **Open in KakaoTalk** when prompted — the theme installs.
-4. KakaoTalk → **More (⋯) → Settings → Theme** → select **Pastel Bunny**.
+4. KakaoTalk → **More (⋯) → Settings → Theme** → select the theme.
 
 > Requires KakaoTalk 8.0.0+. Custom themes change images/colors only
 > (layout is fixed). If a KakaoTalk update blocks a custom theme, rebuild
@@ -79,12 +96,9 @@ straight from the Files app:
 
 ---
 
-## Customizing
+## Adding a new theme
 
-- **Colors:** edit the hex values in `theme/KakaoTalkTheme.css`.
-- **Bubble / ear colors:** the palette constants at the top of
-  `scripts/generate_images.py` (`PINK`, `MINT`, ear/outline colors).
-- **Background pattern:** `pattern_bg` density and `BG_TOP/BG_BOT`.
-- **Tab icons:** the `gi_*` functions; `MUTED`/`ACCENT` set normal/selected.
-
-After any change: `./scripts/build.sh`.
+1. Copy an existing folder under `themes/` as a starting point.
+2. Edit the palette/artwork in `scripts/generate_images.py` and the colors in
+   `KakaoTalkTheme.css`.
+3. `./scripts/build.sh <your-theme>` and check it with `analyze_theme.py`.
