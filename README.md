@@ -17,6 +17,11 @@ are no binary art blobs to hand-edit.
   <img src="themes/pastel-bunny/preview/preview.png" width="320" alt="Pastel Bunny preview">
 </p>
 
+**Download:** prebuilt packages live in [`releases/`](releases) — e.g.
+[`releases/KittyTalk.ktheme`](releases/KittyTalk.ktheme) (open the file on GitHub
+and click **Download**). Or build any theme yourself with `./scripts/build.sh`
+(see [Build](#build)).
+
 ---
 
 ## How an iOS KakaoTalk theme works
