@@ -1,0 +1,27 @@
+{
+  "name": "KittyTalk",
+  "author": "Jenna Studio",
+  "version": "8.0.0",
+  "themeId": "com.kakao.talk.theme.kittytalkios",
+  "platform": "ios",
+  "kakaotalkMinVersion": "8.0.0",
+  "description": "A minimal Sanrio x Apple look for KakaoTalk on iOS: predominantly white, black outlines and typography, red (#E6002D) as the only accent, with a little bow as the one recurring motif.",
+  "palette": {
+    "white": "#FFFFFF",
+    "red": "#E6002D",
+    "black": "#111111",
+    "lightGray": "#F6F6F6",
+    "border": "#1F1F1F",
+    "senderBow": "#960E26"
+  },
+  "fonts": {
+    "wordmark": "Fredoka",
+    "note": "KakaoTalk renders in-app text in the system font; the .ktheme format has no font property. Bundled fonts are used only for the wordmark and preview artwork."
+  },
+  "build": {
+    "generate": "python3 themes/kittytalk/scripts/generate_images.py",
+    "package": "./scripts/build.sh kittytalk",
+    "output": "dist/KittyTalk.ktheme"
+  },
+  "note": "This manifest is source metadata only. A KakaoTalk .ktheme package contains KakaoTalkTheme.css + Images/ at the archive root; manifest.json is not included in the package."
+}

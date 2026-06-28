@@ -18,7 +18,7 @@ import os
 from PIL import Image, ImageDraw, ImageFont
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-IMG = os.path.join(ROOT, "theme", "Images")
+IMG = os.path.join(ROOT, "Images")
 PREV = os.path.join(ROOT, "preview")
 os.makedirs(IMG, exist_ok=True)
 os.makedirs(PREV, exist_ok=True)
