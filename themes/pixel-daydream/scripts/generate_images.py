@@ -280,6 +280,27 @@ def _rounded_mask(w, h, box, r, val=255):
     return m
 
 
+def _radial_fill(w, h, stops):
+    """Circular gradient: stops[0] at the centre -> stops[-1] at the edge.
+    Built from PIL's radial gradient (0 centre .. 255 edge) via per-channel
+    LUTs, so it's cheap. The edge colour is set to the window frame colour, so
+    the panel melts seamlessly into the frame; on stretched bubbles the circle
+    becomes a soft ellipse but never a hard band."""
+    rad = Image.radial_gradient("L").resize((max(1, w), max(1, h)))
+    n = len(stops) - 1
+
+    def lut(ch):
+        out = []
+        for i in range(256):
+            t = i / 255
+            seg = min(n - 1, int(t * n))
+            k = t * n - seg
+            out.append(int(stops[seg][ch] + (stops[seg + 1][ch] - stops[seg][ch]) * k))
+        return out
+
+    return Image.merge("RGB", (rad.point(lut(0)), rad.point(lut(1)), rad.point(lut(2))))
+
+
 # colours per bubble side: frame, title gradient, iridescent panel stops, glow
 class Bub:
     def __init__(self, border, frame, title_top, title_bot, panel_stops, div, glow, wing):
@@ -297,16 +318,19 @@ class Bub:
                    [d(c) for c in self.panel_stops], d(self.div), self.glow, d(self.wing))
 
 
-# received = pink window / light vertical hologram panel (white->pink->lilac->mint)
+# panel_stops are now a RADIAL ramp: centre -> edge. The edge equals the window
+# frame colour so the panel blends seamlessly into the frame.
+# received = pink window: bright centre -> soft pink -> pink frame edge
 RECV = Bub(border=(232, 146, 192), frame=(247, 199, 223),
            title_top=(250, 202, 225), title_bot=(238, 197, 227),
-           panel_stops=[(249, 250, 255), (251, 234, 244), (240, 235, 251), (233, 247, 241)],
+           panel_stops=[(255, 251, 254), (252, 226, 240), (247, 199, 223)],
            div=(236, 158, 200), glow=(252, 206, 232, 150), wing=(132, 222, 214))
 
-# sent = periwinkle window / vertical blue->lavender->pink->mint hologram panel
+# sent = periwinkle window: pale centre -> periwinkle -> blue frame edge
+# (blue blended through so it reads soft, not vibrant, and melts into the frame)
 SENT = Bub(border=(148, 166, 224), frame=(199, 213, 240),
            title_top=(201, 219, 245), title_bot=(204, 224, 234),
-           panel_stops=[(202, 221, 248), (220, 209, 246), (242, 214, 236), (208, 234, 223)],
+           panel_stops=[(234, 231, 249), (214, 215, 245), (199, 213, 240)],
            div=(158, 178, 226), glow=(200, 216, 246, 150), wing=(140, 224, 204))
 
 PANEL_ALPHA = 242             # frosted: lets a touch of background through
@@ -361,26 +385,19 @@ def _bubble_master(b):
         [px0, py0 + int(DS * 0.9), px1, py1 + int(DS * 0.9)], radius=r_in, fill=(72, 60, 104, 85))
     out.alpha_composite(sh.filter(ImageFilter.GaussianBlur(DS * 0.8)))
 
-    # iridescent fill. The whole colour transition lives in the 9-slice
-    # STRETCH zone (between the caps); the cap zones are solid and equal to the
-    # gradient's end colours. That way KakaoTalk scales the gradient evenly over
-    # the middle of any-height bubble while the caps seamlessly continue the end
-    # colours -- so long messages get an evenly dispersed gradient, not a band.
-    mid0, mid1 = CAP * DS, H - CAP * DS
+    # circular (radial) fill: bright centre fading to the frame colour at the
+    # edges, so the panel blends seamlessly into the window frame.
     pfill = Image.new("RGBA", (W, H), (0, 0, 0, 0))
-    pd = ImageDraw.Draw(pfill)
-    pd.rectangle([0, py0, W, mid0], fill=b.panel_stops[0] + (255,))
-    pfill.paste(_grad_v_stops(W, mid1 - mid0, b.panel_stops).convert("RGBA"), (0, mid0))
-    pd.rectangle([0, mid1, W, py1], fill=b.panel_stops[-1] + (255,))
+    pfill.paste(_radial_fill(px1 - px0, py1 - py0, b.panel_stops).convert("RGBA"), (px0, py0))
     out.paste(pfill, (0, 0), pmask)
 
-    # glossy highlight across the top half of the panel (vertical fade)
+    # soft glossy sheen across the top of the panel (subtle, vertical fade)
     gloss = Image.new("RGBA", (W, H), (0, 0, 0, 0))
     gd = ImageDraw.Draw(gloss)
     ph = py1 - py0
-    for yy in range(py0, py0 + int(ph * 0.52)):
-        t = (yy - py0) / max(1, ph * 0.52)
-        gd.line([px0, yy, px1, yy], fill=(255, 255, 255, int(100 * (1 - t) ** 1.4)))
+    for yy in range(py0, py0 + int(ph * 0.48)):
+        t = (yy - py0) / max(1, ph * 0.48)
+        gd.line([px0, yy, px1, yy], fill=(255, 255, 255, int(62 * (1 - t) ** 1.5)))
     out.alpha_composite(Image.composite(gloss, blank, pmask_full))
 
     d = ImageDraw.Draw(out)
