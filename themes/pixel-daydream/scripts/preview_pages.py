@@ -14,7 +14,7 @@ HDR = (247, 217, 238)
 TEXT = (106, 90, 122)
 SUB = (156, 138, 182)
 ACCENT = (240, 106, 160)
-CAP3 = 24 * 3
+CAP3 = 22 * 3
 
 
 def font(sz, bold=False):

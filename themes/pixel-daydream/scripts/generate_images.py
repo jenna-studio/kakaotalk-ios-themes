@@ -247,10 +247,11 @@ def pal_mono(c):
 # ===========================================================================
 DS = 12                       # draw units per 1x point (downscaled -> crisp)
 BUB_W, BUB_H = 100, 80        # 1x points
-CAP = 24                      # 9-slice cap (matches the CSS). Small enough that
-                              # even a 1-line bubble stays taller than 2*CAP, so
-                              # the cap never clamps and the TITLE BAR is exactly
-                              # the same size on every bubble regardless of text.
+CAP = 22                      # 9-slice cap (matches the CSS). Kept well below
+                              # half the smallest bubble height (~50px) so the
+                              # cap never clamps -- the TITLE BAR (and its top/
+                              # bottom padding) is then identical on every bubble
+                              # regardless of message length or shape.
 
 
 def _grad_v(w, h, top, bot):
@@ -323,19 +324,19 @@ class Bub:
 
 # panel_stops are now a RADIAL ramp: centre -> edge. The edge equals the window
 # frame colour so the panel blends seamlessly into the frame.
-# received = pink window: soft-pink centre -> pink -> deeper pink -> pink frame
-# (pink-dominant, with just a whisper of mint near the centre)
+# panel_stops are a LINEAR vertical ramp (top -> bottom).
+# received = pink window: soft butter-yellow -> warm pink -> pink frame
 RECV = Bub(border=(232, 146, 192), frame=(247, 199, 223),
            title_top=(250, 202, 225), title_bot=(238, 197, 227),
-           panel_stops=[(255, 247, 251), (250, 226, 240), (249, 208, 228), (247, 199, 223)],
+           panel_stops=[(255, 248, 224), (253, 228, 230), (250, 210, 226), (247, 199, 223)],
            div=(236, 158, 200), glow=(252, 206, 232, 150), wing=(132, 222, 214))
 
-# sent = periwinkle window: richer hologram -- white centre -> mint -> lavender
-# -> periwinkle -> blue frame edge (more colour, still soft and frame-seamless)
+# sent = periwinkle window: richer hologram -- cool white -> mint -> lavender
+# -> periwinkle -> blue (more colour, still soft)
 SENT = Bub(border=(148, 166, 224), frame=(199, 213, 240),
            title_top=(201, 219, 245), title_bot=(204, 224, 234),
-           panel_stops=[(240, 244, 250), (205, 238, 230), (214, 210, 246),
-                        (203, 216, 244), (199, 213, 240)],
+           panel_stops=[(238, 245, 250), (205, 237, 229), (215, 209, 246),
+                        (204, 217, 245), (199, 213, 240)],
            div=(158, 178, 226), glow=(200, 216, 246, 150), wing=(140, 224, 204))
 
 PANEL_ALPHA = 242             # frosted: lets a touch of background through
@@ -345,10 +346,10 @@ def _bubble_master(b):
     """Render the embossed, glossy hologram window at DS resolution."""
     W, H = BUB_W * DS, BUB_H * DS
     lw = max(2, int(1.6 * DS))
-    r_out = 14 * DS
-    title_h = 16 * DS
+    r_out = 12 * DS
+    title_h = 15 * DS
     margin = 6 * DS                  # frame thickness around the inset panel
-    r_in = 6 * DS
+    r_in = 5 * DS
     panel_gap = 1 * DS               # gap between title bar and the panel
     # NB: title_h + panel_gap + r_in (+border) must stay <= CAP so BOTH the
     # top AND bottom panel corners sit fully inside the 9-slice cap -- otherwise
@@ -390,10 +391,17 @@ def _bubble_master(b):
         [px0, py0 + int(DS * 0.9), px1, py1 + int(DS * 0.9)], radius=r_in, fill=(72, 60, 104, 85))
     out.alpha_composite(sh.filter(ImageFilter.GaussianBlur(DS * 0.8)))
 
-    # circular (radial) fill: bright centre fading to the frame colour at the
-    # edges, so the panel blends seamlessly into the window frame.
+    # LINEAR vertical gradient. The whole colour transition lives in the
+    # 9-slice stretch zone (between the caps); the cap zones are solid and equal
+    # to the gradient's end colours. KakaoTalk then scales the gradient evenly
+    # over the middle of any-height bubble while the caps continue the end
+    # colours -- so even long messages get an evenly dispersed gradient.
+    mid0, mid1 = CAP * DS, H - CAP * DS
     pfill = Image.new("RGBA", (W, H), (0, 0, 0, 0))
-    pfill.paste(_radial_fill(px1 - px0, py1 - py0, b.panel_stops).convert("RGBA"), (px0, py0))
+    pd = ImageDraw.Draw(pfill)
+    pd.rectangle([0, py0, W, mid0], fill=b.panel_stops[0] + (255,))
+    pfill.paste(_grad_v_stops(W, mid1 - mid0, b.panel_stops).convert("RGBA"), (0, mid0))
+    pd.rectangle([0, mid1, W, py1], fill=b.panel_stops[-1] + (255,))
     out.paste(pfill, (0, 0), pmask)
 
     # soft glossy sheen across the top of the panel (subtle, vertical fade)
@@ -434,14 +442,14 @@ def _overlay_widgets(img, scale, b):
     d = ImageDraw.Draw(img)
     # pixel butterfly, inset from the LEFT, vertically centred in the title bar
     draw_pixels(d, BUTTERFLY, pal_butterfly(b.wing, darken(b.wing, 0.62)),
-                11 * scale, 5 * scale, scale)
+                9 * scale, 4 * scale, scale)
     # minimize + close buttons, inset from the RIGHT, centred in the title bar
     edge = darken(b.border, 0.88)
     bfill = (255, 253, 255, 240)
     size = 7
     for i, kind in enumerate(("min", "close")):
-        x = (77 + i * 9) * scale
-        y = 6 * scale
+        x = (79 + i * 10) * scale
+        y = 5 * scale
         x1, y1 = x + size * scale, y + size * scale
         d.rectangle([x, y, x1, y1], fill=bfill, outline=edge, width=max(1, scale // 2))
         if kind == "min":
