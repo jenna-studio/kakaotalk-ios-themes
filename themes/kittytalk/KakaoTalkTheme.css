@@ -80,8 +80,6 @@ TabBarStyle-Main
 {
   -ios-background-image: 'maintabBgImage.png';
   background-color: #FFECF2;
-  -ios-text-color: #111111;
-  -ios-selected-text-color: #E6002D;
   -ios-friends-normal-icon-image: 'maintabIcoFriends.png';
   -ios-friends-selected-icon-image: 'maintabIcoFriendsSelected.png';
   -ios-chats-normal-icon-image: 'maintabIcoChats.png';
@@ -96,6 +94,26 @@ TabBarStyle-Main
   -ios-game-selected-icon-image: 'maintabIcoGameSelected.png';
   -ios-more-normal-icon-image: 'maintabIcoMore.png';
   -ios-more-selected-icon-image: 'maintabIcoMoreSelected.png';
+}
+
+/* The tab labels (Friends / Chats / ...) are styled by a SEPARATE selector from
+   TabBarStyle. Its default text colour is white, which is invisible on a light
+   bar -- so set it explicitly: black normally, red on the selected tab. Both
+   the 8.0.0 (-Main) and legacy (1) selector names are included for safety. */
+TabBarTitleStyle-Main
+{
+  -ios-text-color: #111111;
+  -ios-text-alpha: 1.0;
+  -ios-selected-text-color: #E6002D;
+  -ios-selected-text-alpha: 1.0;
+}
+
+TabBarTitleStyle1
+{
+  -ios-text-color: #111111;
+  -ios-text-alpha: 1.0;
+  -ios-selected-text-color: #E6002D;
+  -ios-selected-text-alpha: 1.0;
 }
 
 BackgroundStyle-ChatRoom
@@ -117,10 +135,10 @@ InputBarStyle-Chat
 
 MessageCellStyle-Send
 {
-  -ios-background-image: 'chatroomBubbleSend01.png' 26px 26px;
-  -ios-selected-background-image: 'chatroomBubbleSend01Selected.png' 26px 26px;
-  -ios-group-background-image: 'chatroomBubbleSend02.png' 26px 26px;
-  -ios-group-selected-background-image: 'chatroomBubbleSend02Selected.png' 26px 26px;
+  -ios-background-image: 'chatroomBubbleSend01.png' 27px 27px;
+  -ios-selected-background-image: 'chatroomBubbleSend01Selected.png' 27px 27px;
+  -ios-group-background-image: 'chatroomBubbleSend02.png' 27px 27px;
+  -ios-group-selected-background-image: 'chatroomBubbleSend02Selected.png' 27px 27px;
   -ios-title-edgeinsets: 16px 16px 8px 14px;
   -ios-group-title-edgeinsets: 16px 16px 8px 14px;
   -ios-text-color: #111111;
@@ -130,10 +148,10 @@ MessageCellStyle-Send
 
 MessageCellStyle-Receive
 {
-  -ios-background-image: 'chatroomBubbleReceive01.png' 26px 26px;
-  -ios-selected-background-image: 'chatroomBubbleReceive01Selected.png' 26px 26px;
-  -ios-group-background-image: 'chatroomBubbleReceive02.png' 26px 26px;
-  -ios-group-selected-background-image: 'chatroomBubbleReceive02Selected.png' 26px 26px;
+  -ios-background-image: 'chatroomBubbleReceive01.png' 27px 27px;
+  -ios-selected-background-image: 'chatroomBubbleReceive01Selected.png' 27px 27px;
+  -ios-group-background-image: 'chatroomBubbleReceive02.png' 27px 27px;
+  -ios-group-selected-background-image: 'chatroomBubbleReceive02Selected.png' 27px 27px;
   -ios-title-edgeinsets: 16px 14px 8px 16px;
   -ios-group-title-edgeinsets: 16px 14px 8px 16px;
   -ios-text-color: #111111;

@@ -221,7 +221,7 @@ def _bubble_master(bow_img, body_fill):
     d.rounded_rectangle(body, radius=RADIUS * DS, fill=body_fill,
                         outline=OUTLINE_C, width=lw)
     bow = bow_img.copy()
-    bow.thumbnail((int(24 * DS), int(21 * DS)), Image.LANCZOS)
+    bow.thumbnail((int(20 * DS), int(18 * DS)), Image.LANCZOS)   # smaller -> more cap margin
     bx = W - 1 * DS - bow.width          # tucked into the top-right corner
     by = 0
     im.alpha_composite(bow, (bx, by))
@@ -241,8 +241,11 @@ corner_x = MARGIN + RADIUS
 corner_y = max(BODY_TOP + RADIUS, MARGIN + RADIUS)
 bow_x = math.ceil((BUB_W * DS - rbx) / DS)
 bow_y = math.ceil(rby / DS)
-# one symmetric cap (order-independent in the CSS), covering the worst case
-CAP1 = max(corner_x, corner_y, bow_x, bow_y) + 1
+# Give the bow a generous margin inside the corner cap (6px @1x = 18px @3x) so a
+# slight cap mismatch on-device can never let it spill into the stretch zone and
+# skew with message length. One symmetric cap (order-independent in the CSS).
+BOW_MARGIN = 6
+CAP1 = max(corner_x, corner_y, bow_x + BOW_MARGIN, bow_y + BOW_MARGIN)
 CAP1X = CAP1Y = CAP1
 assert 2 * CAP1 < BUB_W and 2 * CAP1 < BUB_H, "cap leaves no stretchable middle"
 
