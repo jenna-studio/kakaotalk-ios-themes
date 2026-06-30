@@ -62,29 +62,40 @@ def chatroom():
     recv = load("chatroomBubbleReceive01@3x.png")
     prof = load("profileImg01@3x.png").resize((40, 40), Image.LANCZOS)
 
-    def bubble(text, side, y):
-        ft = font(13)
-        tw = int(d.textlength(text, font=ft))
-        bw, bh = max(96, tw + 44), 70
-        ty = y + int(bh * 0.66)          # text sits in the body, below title bar
+    ft = font(13)
+    lh = 21
+
+    # @3x asset: title bar bottom (divider) sits ~62px from the top. Keep
+    # bubbles tall enough (>= 2*clamped-cap) that the 9-slice preserves that
+    # title region 1:1, then anchor the text just below it -- mirroring how the
+    # 34px top edge-inset reserves the title bar in the real app.
+    TITLE_PX = 62
+
+    def bubble(lines, side, y, ts):
+        tw = max(int(d.textlength(ln, font=ft)) for ln in lines)
+        bw = max(150, tw + 52)
+        bh = max(126, TITLE_PX + 12 + len(lines) * lh + 18)
         img = nine_slice(recv if side == "L" else send, CAP3, bw, bh)
         if side == "L":
-            s.alpha_composite(prof, (12, y + 12))
-            bx = 60
-            s.alpha_composite(img, (bx, y))
-            d.text((bx + bw // 2, ty), text, font=ft, fill=(107, 74, 96), anchor="mm")
-            d.text((bx + bw + 6, y + bh - 8), "9:20", font=font(9), fill=SUB, anchor="lm")
+            s.alpha_composite(prof, (12, y + 16))
+            bx, tcol = 60, (104, 72, 95)
         else:
-            bx = W - 14 - bw
-            s.alpha_composite(img, (bx, y))
-            d.text((bx + bw // 2, ty), text, font=ft, fill=(69, 69, 110), anchor="mm")
-            d.text((bx - 6, y + bh - 8), "9:21", font=font(9), fill=SUB, anchor="rm")
+            bx, tcol = W - 14 - bw, (66, 66, 108)
+        s.alpha_composite(img, (bx, y))
+        ty0 = y + TITLE_PX + 14            # first line, inside the lower panel
+        for i, ln in enumerate(lines):
+            d.text((bx + 26, ty0 + i * lh), ln, font=ft, fill=tcol, anchor="lm")
+        if side == "L":
+            d.text((bx + bw + 6, y + bh - 12), ts, font=font(9), fill=SUB, anchor="lm")
+        else:
+            d.text((bx - 6, y + bh - 12), ts, font=font(9), fill=SUB, anchor="rm")
+        return bh
 
-    d.text((60, 92), "Jenna \U0001f49c", font=font(11), fill=SUB, anchor="lm")
-    bubble("Hey! How was your day?", "L", 104)
-    bubble("Wanna grab coffee tomorrow?", "L", 184)
-    bubble("It was great!", "R", 264)
-    bubble("Yes please!", "R", 344)
+    d.text((60, 84), "Jenna \U0001f49c", font=font(11), fill=SUB, anchor="lm")
+    y = 96
+    y += bubble(["Hey! How was", "your day?"], "L", y, "9:20") + 12
+    y += bubble(["It was great!", "So excited", "to talk to you"], "R", y, "9:21") + 12
+    bubble(["Yes please!"], "R", y, "9:21")
 
     # input bar
     d.rectangle([0, H - 56, W, H], fill=(251, 221, 238))

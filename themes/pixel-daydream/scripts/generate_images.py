@@ -245,9 +245,9 @@ def pal_mono(c):
 #   wrapping an inset, frosted content panel where the text sits. Everything
 #   decorative lives inside the 22px 9-slice corner cap, so it never distorts.
 # ===========================================================================
-DS = 16                       # draw units per 1x point (downscaled -> crisp)
-BUB_W, BUB_H = 72, 66         # 1x points
-CAP = 22                      # 9-slice cap (matches the CSS)
+DS = 12                       # draw units per 1x point (downscaled -> crisp)
+BUB_W, BUB_H = 100, 80        # 1x points
+CAP = 30                      # 9-slice cap (matches the CSS)
 
 
 def _grad_v(w, h, top, bot):
@@ -258,20 +258,32 @@ def _grad_v(w, h, top, bot):
     return col.resize((w, h))
 
 
+def _grad_h(w, h, stops):
+    """Horizontal multi-stop gradient (used for the iridescent panel)."""
+    n = len(stops) - 1
+    row = Image.new("RGB", (w, 1))
+    for x in range(w):
+        t = x / max(1, w - 1)
+        seg = min(n - 1, int(t * n))
+        k = t * n - seg
+        c0, c1 = stops[seg], stops[seg + 1]
+        row.putpixel((x, 0), tuple(int(c0[i] + (c1[i] - c0[i]) * k) for i in range(3)))
+    return row.resize((w, h))
+
+
 def _rounded_mask(w, h, box, r, val=255):
     m = Image.new("L", (w, h), 0)
     ImageDraw.Draw(m).rounded_rectangle(box, radius=r, fill=val)
     return m
 
 
-# colours per bubble side: frame base, title gradient, content gradient, glow
+# colours per bubble side: frame, title gradient, iridescent panel stops, glow
 class Bub:
-    def __init__(self, border, frame, title_top, title_bot, panel_top, panel_bot,
-                 div, glow, wing):
+    def __init__(self, border, frame, title_top, title_bot, panel_stops, div, glow, wing):
         self.border = border
         self.frame = frame
         self.title_top, self.title_bot = title_top, title_bot
-        self.panel_top, self.panel_bot = panel_top, panel_bot
+        self.panel_stops = panel_stops
         self.div = div
         self.glow = glow
         self.wing = wing
@@ -279,45 +291,48 @@ class Bub:
     def dim(self, f):
         d = lambda c: darken(c, f)
         return Bub(d(self.border), d(self.frame), d(self.title_top), d(self.title_bot),
-                   d(self.panel_top), d(self.panel_bot), d(self.div), self.glow, d(self.wing))
+                   [d(c) for c in self.panel_stops], d(self.div), self.glow, d(self.wing))
 
 
-# received = pink window / white-ish frosted panel
-RECV = Bub(border=(234, 150, 196), frame=(247, 200, 224),
-           title_top=(249, 201, 224), title_bot=(238, 198, 228),
-           panel_top=(255, 252, 254), panel_bot=(251, 235, 245),
+# received = pink window / pearly near-white iridescent panel
+RECV = Bub(border=(232, 146, 192), frame=(247, 199, 223),
+           title_top=(250, 202, 225), title_bot=(238, 197, 227),
+           panel_stops=[(255, 252, 255), (252, 242, 250), (245, 243, 254), (255, 250, 253)],
            div=(236, 158, 200), glow=(252, 206, 232, 150), wing=(132, 222, 214))
 
-# sent = periwinkle window / blue->mint frosted panel
-SENT = Bub(border=(150, 168, 226), frame=(199, 213, 240),
-           title_top=(200, 218, 244), title_bot=(203, 224, 234),
-           panel_top=(207, 221, 248), panel_bot=(205, 236, 222),
+# sent = periwinkle window / blue->lavender->pink->mint hologram panel
+SENT = Bub(border=(148, 166, 224), frame=(199, 213, 240),
+           title_top=(201, 219, 245), title_bot=(204, 224, 234),
+           panel_stops=[(199, 218, 247), (214, 205, 245), (240, 211, 236),
+                        (208, 233, 223), (198, 223, 241)],
            div=(158, 178, 226), glow=(200, 216, 246, 150), wing=(140, 224, 204))
 
-PANEL_ALPHA = 236             # frosted: lets a little background through
+PANEL_ALPHA = 242             # frosted: lets a touch of background through
 
 
 def _bubble_master(b):
-    """Render the window at DS resolution (no pixel widgets yet)."""
+    """Render the embossed, glossy hologram window at DS resolution."""
     W, H = BUB_W * DS, BUB_H * DS
-    lw = max(2, int(1.5 * DS))
-    r_out = 15 * DS
-    title_h = 16 * DS
-    margin = 5 * DS            # frame thickness around the inset panel
-    r_in = 9 * DS
+    lw = max(2, int(1.6 * DS))
+    r_out = 18 * DS
+    title_h = 20 * DS
+    margin = 6 * DS                  # frame thickness around the inset panel
+    r_in = 12 * DS
+    panel_gap = 5 * DS               # gap between title bar and the panel
+    blank = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    full = [lw // 2, lw // 2, W - lw // 2, H - lw // 2]
 
     out = Image.new("RGBA", (W, H), (0, 0, 0, 0))
 
     # soft outer glow
     glow = Image.new("RGBA", (W, H), (0, 0, 0, 0))
-    ImageDraw.Draw(glow).rounded_rectangle([lw // 2, lw // 2, W - lw // 2, H - lw // 2],
-                                           radius=r_out, fill=b.glow)
+    ImageDraw.Draw(glow).rounded_rectangle(full, radius=r_out, fill=b.glow)
     out.alpha_composite(glow.filter(ImageFilter.GaussianBlur(DS * 1.4)))
 
     # window frame (solid frame colour inside the rounded rect)
     frame = Image.new("RGBA", (W, H), (0, 0, 0, 0))
-    fmask = _rounded_mask(W, H, [lw // 2, lw // 2, W - lw // 2, H - lw // 2], r_out)
-    frame.paste(Image.new("RGBA", (W, H), b.frame + (255,)), (0, 0), fmask)
+    frame.paste(Image.new("RGBA", (W, H), b.frame + (255,)), (0, 0),
+                _rounded_mask(W, H, full, r_out))
     out.alpha_composite(frame)
 
     # title bar gradient (clipped to the rounded top of the frame)
@@ -327,36 +342,64 @@ def _bubble_master(b):
     tgrad.paste(_grad_v(W, lw // 2 + title_h, b.title_top, b.title_bot), (0, 0))
     out.paste(tgrad, (0, 0), tmask)
 
-    d = ImageDraw.Draw(out)
-    d.line([lw + DS, lw // 2 + title_h, W - lw - DS, lw // 2 + title_h],
-           fill=b.div, width=max(1, int(DS * 0.35)))
-
-    # inset frosted content panel (where the text sits)
-    px0, py0 = margin + lw // 2, lw // 2 + title_h + int(2.5 * DS)
+    # ---- inset hologram content panel ------------------------------------
+    px0, py0 = margin + lw // 2, lw // 2 + title_h + panel_gap
     px1, py1 = W - margin - lw // 2, H - margin - lw // 2
-    pmask = _rounded_mask(W, H, [px0, py0, px1, py1], r_in, val=PANEL_ALPHA)
-    pgrad = _grad_v(W, H, b.panel_top, b.panel_bot).convert("RGBA")
+    pbox = [px0, py0, px1, py1]
+    pmask = _rounded_mask(W, H, pbox, r_in, val=PANEL_ALPHA)
+    pmask_full = _rounded_mask(W, H, pbox, r_in, val=255)
+
+    # drop shadow beneath the panel -> raised / embossed feel
+    sh = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    ImageDraw.Draw(sh).rounded_rectangle(
+        [px0, py0 + int(DS * 0.9), px1, py1 + int(DS * 0.9)], radius=r_in, fill=(72, 60, 104, 85))
+    out.alpha_composite(sh.filter(ImageFilter.GaussianBlur(DS * 0.8)))
+
+    # iridescent fill
+    pgrad = _grad_h(W, H, b.panel_stops).convert("RGBA")
     out.paste(pgrad, (0, 0), pmask)
 
+    # glossy highlight across the top half of the panel
+    gloss = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    gd = ImageDraw.Draw(gloss)
+    ph = py1 - py0
+    for yy in range(py0, py0 + int(ph * 0.52)):
+        t = (yy - py0) / max(1, ph * 0.52)
+        gd.line([px0, yy, px1, yy], fill=(255, 255, 255, int(105 * (1 - t) ** 1.4)))
+    out.alpha_composite(Image.composite(gloss, blank, pmask_full))
+
+    d = ImageDraw.Draw(out)
+    # embossed rims: bright top/left highlight, soft bottom/right shadow
+    d.arc(pbox, 150, 330, fill=(255, 255, 255, 170), width=max(1, int(DS * 0.22)))
+    d.arc([px0 + 1, py0 + 1, px1 - 1, py1 - 1], 330, 150,
+          fill=(90, 70, 120, 70), width=max(1, int(DS * 0.18)))
+
+    # title divider + chrome top-highlight (glossy window edge)
+    d.line([px0, lw // 2 + title_h, px1, lw // 2 + title_h], fill=b.div,
+           width=max(1, int(DS * 0.3)))
+    d.line([lw // 2 + r_out, lw // 2 + max(1, int(DS * 0.35)),
+            W - lw // 2 - r_out, lw // 2 + max(1, int(DS * 0.35))],
+           fill=(255, 255, 255, 130), width=max(1, int(DS * 0.22)))
+
     # outer border
-    d.rounded_rectangle([lw // 2, lw // 2, W - lw // 2, H - lw // 2],
-                        radius=r_out, outline=b.border, width=lw)
+    d.rounded_rectangle(full, radius=r_out, outline=b.border, width=lw)
     return out
 
 
 def _overlay_widgets(img, scale, b):
-    """Draw the crisp pixel butterfly + minimize/close buttons at final size."""
+    """Crisp pixel butterfly + minimize/close buttons, inset from the edges so
+    they sit safely inside the 30px corner cap and never get cropped."""
     d = ImageDraw.Draw(img)
-    # pixel butterfly, top-left of the title bar (inside the 22px cap)
+    # pixel butterfly, inset from the LEFT inside the title bar
     draw_pixels(d, BUTTERFLY, pal_butterfly(b.wing, darken(b.wing, 0.62)),
-                5 * scale, 4 * scale, scale)
-    # minimize + close buttons, top-right (inside the 22px cap)
-    edge = darken(b.border, 0.9)
-    bfill = (255, 253, 255, 235)
+                12 * scale, 6 * scale, scale)
+    # minimize + close buttons, inset from the RIGHT
+    edge = darken(b.border, 0.88)
+    bfill = (255, 253, 255, 240)
     size = 7
     for i, kind in enumerate(("min", "close")):
-        x = (52 + i * 9) * scale
-        y = 5 * scale
+        x = (71 + i * 10) * scale
+        y = 6 * scale
         x1, y1 = x + size * scale, y + size * scale
         d.rectangle([x, y, x1, y1], fill=bfill, outline=edge, width=max(1, scale // 2))
         if kind == "min":
@@ -454,34 +497,41 @@ SCATTER_MOTIFS = [
 ]
 
 
-def scatter(img, n, seed):
+def scatter(img, cols, rows, seed):
+    """Place tiny pixel motifs on a jittered grid so they're spread evenly
+    (not clustered) and kept small -- they're just little decorations."""
     rnd = random.Random(seed)
     w, h = img.size
     layer = Image.new("RGBA", (w, h), (0, 0, 0, 0))
-    base = max(2, w // 120)
-    for _ in range(n):
-        rows, pal = SCATTER_MOTIFS[rnd.randrange(len(SCATTER_MOTIFS))]
-        a = rnd.randint(150, 235)
-        fpal = {k: (v[:3] + (a,)) for k, v in pal.items()}
-        c = rnd.choice([base, base, base + 1, base + 2])
-        sw, sh = _dims(rows)
-        spr = Image.new("RGBA", (sw * c, sh * c), (0, 0, 0, 0))
-        draw_pixels(ImageDraw.Draw(spr), rows, fpal, 0, 0, c)
-        x = rnd.randint(int(w * 0.02), max(1, int(w * 0.98) - spr.width))
-        y = rnd.randint(int(h * 0.08), int(h * 0.90))
-        layer.alpha_composite(spr, (x, y))
+    base = max(2, w // 430)          # ~2px cells -> tiny sprites
+    y0, y1 = h * 0.07, h * 0.92
+    cw, ch = w / cols, (y1 - y0) / rows
+    k = rnd.randrange(len(SCATTER_MOTIFS))
+    for r in range(rows):
+        for c in range(cols):
+            shape, pal = SCATTER_MOTIFS[k % len(SCATTER_MOTIFS)]
+            k += 1
+            a = rnd.randint(165, 225)
+            fpal = {kk: (vv[:3] + (a,)) for kk, vv in pal.items()}
+            cell = rnd.choice([base, base, base + 1])
+            sw, sh = _dims(shape)
+            spr = Image.new("RGBA", (sw * cell, sh * cell), (0, 0, 0, 0))
+            draw_pixels(ImageDraw.Draw(spr), shape, fpal, 0, 0, cell)
+            cx = c * cw + cw * rnd.uniform(0.22, 0.78)
+            cy = y0 + r * ch + ch * rnd.uniform(0.22, 0.78)
+            layer.alpha_composite(spr, (int(cx - spr.width / 2), int(cy - spr.height / 2)))
     return Image.alpha_composite(img.convert("RGBA"), layer)
 
 
-def make_bg(size, blobs, base, scatter_n, seed, border_cell=None):
+def make_bg(size, blobs, base, cols, rows, seed, border_cell=None):
     w, h = size
     img = dreamy(size, blobs, base).convert("RGBA")
-    img = scatter(img, scatter_n, seed)
+    img = scatter(img, cols, rows, seed)
     d = ImageDraw.Draw(img)
     cell = border_cell or max(6, w // 18)
-    cols = [CHK_PINK, CHK_BLUE, CHK_WHITE]
-    checker_band(d, w, 0, 2, cell, cols, seed + 1)
-    checker_band(d, w, h - 2 * cell, 2, cell, cols, seed + 2)
+    chk = [CHK_PINK, CHK_BLUE, CHK_WHITE]
+    checker_band(d, w, 0, 2, cell, chk, seed + 1)
+    checker_band(d, w, h - 2 * cell, 2, cell, chk, seed + 2)
     return img.convert("RGB")
 
 
@@ -496,9 +546,9 @@ MAIN_BLOBS = [
     (0.62, 0.27, 0.34, (208, 196, 240), 175),
 ]
 MAIN_BASE = (216, 206, 240)
-chat = make_bg((846, 1503), MAIN_BLOBS, MAIN_BASE, 18, seed=11)
+chat = make_bg((846, 1503), MAIN_BLOBS, MAIN_BASE, 4, 7, seed=11)
 save(chat, "chatroomBgImage@2x.png"); save(chat, "chatroomBgImage@3x.png")
-main = make_bg((846, 1503), MAIN_BLOBS, MAIN_BASE, 14, seed=5)
+main = make_bg((846, 1503), MAIN_BLOBS, MAIN_BASE, 4, 7, seed=5)
 save(main, "mainBgImage@2x.png"); save(main, "mainBgImage@3x.png")
 PASS_BLOBS = [
     (0.50, 0.02, 0.70, (248, 214, 236), 255),
@@ -506,7 +556,7 @@ PASS_BLOBS = [
     (0.85, 0.45, 0.52, (216, 202, 242), 225),
     (0.55, 1.00, 0.60, (236, 208, 240), 235),
 ]
-passbg = make_bg((846, 846), PASS_BLOBS, (214, 206, 240), 10, seed=3, border_cell=36)
+passbg = make_bg((846, 846), PASS_BLOBS, (214, 206, 240), 4, 4, seed=3, border_cell=36)
 save(passbg, "passcodeBgImage@2x.png"); save(passbg, "passcodeBgImage@3x.png")
 save(passbg.resize((375, 375), Image.LANCZOS), "passcodeBgImage.png")
 
