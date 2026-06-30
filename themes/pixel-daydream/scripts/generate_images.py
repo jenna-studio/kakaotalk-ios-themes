@@ -258,17 +258,20 @@ def _grad_v(w, h, top, bot):
     return col.resize((w, h))
 
 
-def _grad_h(w, h, stops):
-    """Horizontal multi-stop gradient (used for the iridescent panel)."""
+def _grad_v_stops(w, h, stops):
+    """Vertical multi-stop gradient. Used for the iridescent panel because a
+    VERTICAL gradient survives KakaoTalk's 9-slice stretch (every column is
+    identical, so horizontal stretching keeps it; a horizontal gradient would
+    collapse to a flat colour in the stretched centre)."""
     n = len(stops) - 1
-    row = Image.new("RGB", (w, 1))
-    for x in range(w):
-        t = x / max(1, w - 1)
+    col = Image.new("RGB", (1, h))
+    for y in range(h):
+        t = y / max(1, h - 1)
         seg = min(n - 1, int(t * n))
         k = t * n - seg
         c0, c1 = stops[seg], stops[seg + 1]
-        row.putpixel((x, 0), tuple(int(c0[i] + (c1[i] - c0[i]) * k) for i in range(3)))
-    return row.resize((w, h))
+        col.putpixel((0, y), tuple(int(c0[i] + (c1[i] - c0[i]) * k) for i in range(3)))
+    return col.resize((w, h))
 
 
 def _rounded_mask(w, h, box, r, val=255):
@@ -294,17 +297,16 @@ class Bub:
                    [d(c) for c in self.panel_stops], d(self.div), self.glow, d(self.wing))
 
 
-# received = pink window / pearly near-white iridescent panel
+# received = pink window / pearly near-white panel (subtle top->bottom tint)
 RECV = Bub(border=(232, 146, 192), frame=(247, 199, 223),
            title_top=(250, 202, 225), title_bot=(238, 197, 227),
-           panel_stops=[(255, 252, 255), (252, 242, 250), (245, 243, 254), (255, 250, 253)],
+           panel_stops=[(255, 253, 255), (253, 247, 252), (249, 244, 252), (252, 240, 248)],
            div=(236, 158, 200), glow=(252, 206, 232, 150), wing=(132, 222, 214))
 
-# sent = periwinkle window / blue->lavender->pink->mint hologram panel
+# sent = periwinkle window / vertical blue->lavender->pink->mint hologram panel
 SENT = Bub(border=(148, 166, 224), frame=(199, 213, 240),
            title_top=(201, 219, 245), title_bot=(204, 224, 234),
-           panel_stops=[(199, 218, 247), (214, 205, 245), (240, 211, 236),
-                        (208, 233, 223), (198, 223, 241)],
+           panel_stops=[(202, 221, 248), (220, 209, 246), (242, 214, 236), (208, 234, 223)],
            div=(158, 178, 226), glow=(200, 216, 246, 150), wing=(140, 224, 204))
 
 PANEL_ALPHA = 242             # frosted: lets a touch of background through
@@ -355,24 +357,32 @@ def _bubble_master(b):
         [px0, py0 + int(DS * 0.9), px1, py1 + int(DS * 0.9)], radius=r_in, fill=(72, 60, 104, 85))
     out.alpha_composite(sh.filter(ImageFilter.GaussianBlur(DS * 0.8)))
 
-    # iridescent fill
-    pgrad = _grad_h(W, H, b.panel_stops).convert("RGBA")
-    out.paste(pgrad, (0, 0), pmask)
+    # iridescent fill -- VERTICAL gradient mapped to the panel's own height so
+    # it survives 9-slice stretching (see _grad_v_stops).
+    strip = _grad_v_stops(W, py1 - py0, b.panel_stops).convert("RGBA")
+    pfill = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    pfill.paste(strip, (0, py0))
+    out.paste(pfill, (0, 0), pmask)
 
-    # glossy highlight across the top half of the panel
+    # glossy highlight across the top half of the panel (vertical fade)
     gloss = Image.new("RGBA", (W, H), (0, 0, 0, 0))
     gd = ImageDraw.Draw(gloss)
     ph = py1 - py0
     for yy in range(py0, py0 + int(ph * 0.52)):
         t = (yy - py0) / max(1, ph * 0.52)
-        gd.line([px0, yy, px1, yy], fill=(255, 255, 255, int(105 * (1 - t) ** 1.4)))
+        gd.line([px0, yy, px1, yy], fill=(255, 255, 255, int(100 * (1 - t) ** 1.4)))
     out.alpha_composite(Image.composite(gloss, blank, pmask_full))
 
     d = ImageDraw.Draw(out)
-    # embossed rims: bright top/left highlight, soft bottom/right shadow
-    d.arc(pbox, 150, 330, fill=(255, 255, 255, 170), width=max(1, int(DS * 0.22)))
-    d.arc([px0 + 1, py0 + 1, px1 - 1, py1 - 1], 330, 150,
-          fill=(90, 70, 120, 70), width=max(1, int(DS * 0.18)))
+    # embossed feel via 9-slice-safe horizontal bands: bright top edge,
+    # soft shadow bottom edge (inset by the corner radius so they stay inside
+    # the rounded panel and never distort when the bubble stretches).
+    hi_y = py0 + max(1, int(DS * 0.55))
+    lo_y = py1 - max(1, int(DS * 0.55))
+    d.line([px0 + r_in, hi_y, px1 - r_in, hi_y], fill=(255, 255, 255, 165),
+           width=max(1, int(DS * 0.22)))
+    d.line([px0 + r_in, lo_y, px1 - r_in, lo_y], fill=(92, 74, 122, 60),
+           width=max(1, int(DS * 0.18)))
 
     # title divider + chrome top-highlight (glossy window edge)
     d.line([px0, lw // 2 + title_h, px1, lw // 2 + title_h], fill=b.div,
@@ -523,15 +533,16 @@ def scatter(img, cols, rows, seed):
     return Image.alpha_composite(img.convert("RGBA"), layer)
 
 
-def make_bg(size, blobs, base, cols, rows, seed, border_cell=None):
+def make_bg(size, blobs, base, cols, rows, seed, border_cell=None, checker=False):
     w, h = size
     img = dreamy(size, blobs, base).convert("RGBA")
     img = scatter(img, cols, rows, seed)
-    d = ImageDraw.Draw(img)
-    cell = border_cell or max(6, w // 18)
-    chk = [CHK_PINK, CHK_BLUE, CHK_WHITE]
-    checker_band(d, w, 0, 2, cell, chk, seed + 1)
-    checker_band(d, w, h - 2 * cell, 2, cell, chk, seed + 2)
+    if checker:                       # only the chatroom keeps the checker edge
+        d = ImageDraw.Draw(img)
+        cell = border_cell or max(6, w // 18)
+        chk = [CHK_PINK, CHK_BLUE, CHK_WHITE]
+        checker_band(d, w, 0, 2, cell, chk, seed + 1)
+        checker_band(d, w, h - 2 * cell, 2, cell, chk, seed + 2)
     return img.convert("RGB")
 
 
@@ -546,9 +557,9 @@ MAIN_BLOBS = [
     (0.62, 0.27, 0.34, (208, 196, 240), 175),
 ]
 MAIN_BASE = (216, 206, 240)
-chat = make_bg((846, 1503), MAIN_BLOBS, MAIN_BASE, 4, 7, seed=11)
+chat = make_bg((846, 1503), MAIN_BLOBS, MAIN_BASE, 4, 7, seed=11, checker=True)
 save(chat, "chatroomBgImage@2x.png"); save(chat, "chatroomBgImage@3x.png")
-main = make_bg((846, 1503), MAIN_BLOBS, MAIN_BASE, 4, 7, seed=5)
+main = make_bg((846, 1503), MAIN_BLOBS, MAIN_BASE, 4, 7, seed=5, checker=False)
 save(main, "mainBgImage@2x.png"); save(main, "mainBgImage@3x.png")
 PASS_BLOBS = [
     (0.50, 0.02, 0.70, (248, 214, 236), 255),
@@ -556,18 +567,15 @@ PASS_BLOBS = [
     (0.85, 0.45, 0.52, (216, 202, 242), 225),
     (0.55, 1.00, 0.60, (236, 208, 240), 235),
 ]
-passbg = make_bg((846, 846), PASS_BLOBS, (214, 206, 240), 4, 4, seed=3, border_cell=36)
+passbg = make_bg((846, 846), PASS_BLOBS, (214, 206, 240), 4, 4, seed=3, checker=False)
 save(passbg, "passcodeBgImage@2x.png"); save(passbg, "passcodeBgImage@3x.png")
 save(passbg.resize((375, 375), Image.LANCZOS), "passcodeBgImage.png")
 
 
 def tabbar(size):
-    img = dreamy(size, [(0.5, 0.0, 0.8, (250, 222, 240), 255),
-                        (0.5, 1.0, 0.8, (246, 212, 234), 255)], (248, 216, 236)).convert("RGBA")
-    d = ImageDraw.Draw(img)
-    cell = max(4, size[0] // 22)
-    checker_band(d, size[0], size[1] - 2 * cell, 2, cell, [CHK_PINK, CHK_BLUE, CHK_WHITE], 9)
-    return img.convert("RGB")
+    # soft pink gradient, no checker edge (checker is chatroom-only now)
+    return dreamy(size, [(0.5, 0.0, 0.8, (250, 222, 240), 255),
+                         (0.5, 1.0, 0.8, (246, 212, 234), 255)], (248, 216, 236))
 save(tabbar((750, 106)), "maintabBgImage@2x.png")
 save(tabbar((1125, 159)), "maintabBgImage@3x.png")
 
