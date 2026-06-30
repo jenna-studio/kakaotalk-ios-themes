@@ -400,16 +400,16 @@ def _overlay_widgets(img, scale, b):
     """Crisp pixel butterfly + minimize/close buttons, inset from the edges so
     they sit safely inside the 30px corner cap and never get cropped."""
     d = ImageDraw.Draw(img)
-    # pixel butterfly, inset from the LEFT inside the title bar
+    # pixel butterfly, inset from the LEFT, vertically centred in the title bar
     draw_pixels(d, BUTTERFLY, pal_butterfly(b.wing, darken(b.wing, 0.62)),
-                12 * scale, 6 * scale, scale)
-    # minimize + close buttons, inset from the RIGHT
+                12 * scale, 7 * scale, scale)
+    # minimize + close buttons, inset from the RIGHT, centred in the title bar
     edge = darken(b.border, 0.88)
     bfill = (255, 253, 255, 240)
     size = 7
     for i, kind in enumerate(("min", "close")):
         x = (71 + i * 10) * scale
-        y = 6 * scale
+        y = 8 * scale
         x1, y1 = x + size * scale, y + size * scale
         d.rectangle([x, y, x1, y1], fill=bfill, outline=edge, width=max(1, scale // 2))
         if kind == "min":
