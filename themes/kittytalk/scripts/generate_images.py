@@ -24,6 +24,7 @@ Run: python3 themes/kittytalk/scripts/generate_images.py
 """
 
 import os
+import math
 import random
 from PIL import Image, ImageDraw, ImageFilter
 
@@ -93,8 +94,33 @@ def recolor_red_to(img, target):
             if a and r > 120 and g < 130 and b < 130 and r - max(g, b) > 40:
                 # scale brightness of the red onto the target hue
                 f = r / 230.0
-                px[x, y] = (int(tr * f), int(tg * f), int(tb * f), a)
+                px[x, y] = (min(255, int(tr * f)), min(255, int(tg * f)),
+                            min(255, int(tb * f)), a)
     return out
+
+
+def straighten(img):
+    """Deskew the bow so its long (loop-to-loop) axis is level, via image
+    moments. The extracted bow sits at a ~26 degree tilt; this levels it."""
+    a = img.split()[-1]
+    px = a.load()
+    w, h = img.size
+    m00 = m10 = m01 = 0.0
+    for y in range(h):
+        for x in range(w):
+            if px[x, y] > 40:
+                m00 += 1; m10 += x; m01 += y
+    if m00 == 0:
+        return img
+    cx, cy = m10 / m00, m01 / m00
+    mu20 = mu02 = mu11 = 0.0
+    for y in range(h):
+        for x in range(w):
+            if px[x, y] > 40:
+                dx, dy = x - cx, y - cy
+                mu20 += dx * dx; mu02 += dy * dy; mu11 += dx * dy
+    theta = 0.5 * math.atan2(2 * mu11, mu20 - mu02)
+    return trim(img.rotate(math.degrees(theta), expand=True, resample=Image.BICUBIC))
 
 
 def crop_bow(bubble):
@@ -143,6 +169,8 @@ FACE = load_face()
 BUBBLE = load_bubble()
 BOW = crop_bow(BUBBLE)
 BOW_BURG = recolor_red_to(BOW, BURGUNDY)
+# sender bow: straightened (not crooked) and recoloured hot pink (#ff69b4)
+BOW_SENDER = recolor_red_to(straighten(BOW), (255, 105, 180))
 
 
 # ===========================================================================
@@ -201,9 +229,9 @@ def _bubble_master(bow_img, body_fill):
 
 recv_m, (rbx, rby) = _bubble_master(BOW, WHITE)
 recv_sel_m, _ = _bubble_master(BOW, (244, 244, 244))
-# sender = exactly the same shape + bow position, only the bow colour differs
-send_m, _ = _bubble_master(BOW_BURG, WHITE)
-send_sel_m, _ = _bubble_master(BOW_BURG, (244, 244, 244))
+# sender = same bubble shape; bow is straightened + hot pink (#ff69b4)
+send_m, _ = _bubble_master(BOW_SENDER, WHITE)
+send_sel_m, _ = _bubble_master(BOW_SENDER, (244, 244, 244))
 
 # Caps (1x) must contain BOTH the rounded corners and the bow, on every side.
 # corner reach: left/right need MARGIN+RADIUS; top needs BODY_TOP+RADIUS; bottom
