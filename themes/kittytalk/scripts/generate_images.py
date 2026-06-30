@@ -24,8 +24,9 @@ Run: python3 themes/kittytalk/scripts/generate_images.py
 """
 
 import os
+import math
 import random
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageFilter
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 IMG = os.path.join(ROOT, "Images")
@@ -37,11 +38,12 @@ os.makedirs(PREV, exist_ok=True)
 
 # ---- palette --------------------------------------------------------------
 WHITE    = (255, 255, 255)
+PINK_BG  = (255, 236, 242)     # #FFECF2  pastel pink background
 RED      = (230, 0, 45)        # #E6002D
 BURGUNDY = (150, 14, 38)       # sender bow
 BLACK    = (17, 17, 17)
 LGRAY    = (246, 246, 246)
-PATTERN  = (255, 158, 182)     # faint background tint (low alpha)
+PATTERN  = (236, 120, 160)     # faint background bow tint (low alpha)
 
 
 def save_img(img, name):
@@ -92,8 +94,33 @@ def recolor_red_to(img, target):
             if a and r > 120 and g < 130 and b < 130 and r - max(g, b) > 40:
                 # scale brightness of the red onto the target hue
                 f = r / 230.0
-                px[x, y] = (int(tr * f), int(tg * f), int(tb * f), a)
+                px[x, y] = (min(255, int(tr * f)), min(255, int(tg * f)),
+                            min(255, int(tb * f)), a)
     return out
+
+
+def straighten(img):
+    """Deskew the bow so its long (loop-to-loop) axis is level, via image
+    moments. The extracted bow sits at a ~26 degree tilt; this levels it."""
+    a = img.split()[-1]
+    px = a.load()
+    w, h = img.size
+    m00 = m10 = m01 = 0.0
+    for y in range(h):
+        for x in range(w):
+            if px[x, y] > 40:
+                m00 += 1; m10 += x; m01 += y
+    if m00 == 0:
+        return img
+    cx, cy = m10 / m00, m01 / m00
+    mu20 = mu02 = mu11 = 0.0
+    for y in range(h):
+        for x in range(w):
+            if px[x, y] > 40:
+                dx, dy = x - cx, y - cy
+                mu20 += dx * dx; mu02 += dy * dy; mu11 += dx * dy
+    theta = 0.5 * math.atan2(2 * mu11, mu20 - mu02)
+    return trim(img.rotate(math.degrees(theta), expand=True, resample=Image.BICUBIC))
 
 
 def crop_bow(bubble):
@@ -119,13 +146,37 @@ def crop_bow(bubble):
             r, g, b, a = cp[x, y]
             if a and min(r, g, b) > 188:        # near-white -> transparent
                 cp[x, y] = (r, g, b, 0)
+    # Remove the two thin black tails (left + bottom-right) where the bow used to
+    # attach to the bubble outline -- WITHOUT eating the bow's own outline.
+    # Morphological opening on the whole bow shape: the loops+knot+outline form a
+    # thick solid blob that survives, while the thin tails (narrower than the
+    # kernel) are removed. We then keep the original pixels under that mask, so
+    # the bow outline stays exactly as-is.
+    mask = crop.split()[-1].point(lambda v: 255 if v > 40 else 0)
+    E = max(3, int(crop.width * 0.045))         # > half the tail width
+    opened = mask.filter(ImageFilter.MinFilter(2 * E + 1)) \
+                 .filter(ImageFilter.MaxFilter(2 * E + 1))
+    op = opened.load()
+    for y in range(crop.height):
+        for x in range(crop.width):
+            if op[x, y] == 0:
+                r, g, b, a = cp[x, y]
+                cp[x, y] = (r, g, b, 0)
     return trim(crop)
 
 
 FACE = load_face()
 BUBBLE = load_bubble()
 BOW = crop_bow(BUBBLE)
+# Deskew the bow, then give it a small, consistent tilt. The original bow sits at
+# a steep ~26 degrees, whose large bounding box forces a big 9-slice corner cap
+# (which made KakaoTalk stretch/scale the bow with message length). A gently
+# tilted bow is compact, fits a small cap, and keeps its exact original shape on
+# every bubble. Same full-size bow -- only the angle changes.
+BOW = trim(straighten(BOW).rotate(-12, expand=True, resample=Image.BICUBIC))
 BOW_BURG = recolor_red_to(BOW, BURGUNDY)
+# sender bow: same bow + tilt, recoloured hot pink (#ff69b4)
+BOW_SENDER = recolor_red_to(BOW, (255, 105, 180))
 
 
 # ===========================================================================
@@ -157,36 +208,69 @@ def fit(img, w, h, scale=1.0):
 # ===========================================================================
 print("bubbles...")
 DS = 12
-BUB_W, BUB_H = 60, 56          # 1x points (wider than tall -> elliptical)
-BODY_TOP = 14                  # 1x; headroom above the body for the bow
+# 1x geometry. A rounded RECTANGLE (radius < half-height/width) keeps a genuine
+# straight run on every edge, so the 9-slice stays perfectly outlined whether
+# KakaoTalk stretches it horizontally (long text) OR vertically (many lines).
+BUB_W, BUB_H = 58, 52
+MARGIN = 2
+BODY_TOP = 9                   # small headroom so the bow overhangs the top edge
+RADIUS = 11                    # 1x corner radius (<= vertical cap so corners fit)
 OUTLINE_C = (26, 26, 26)       # matches the bow's black outline
+import math
 
 def _bubble_master(bow_img, body_fill):
     W, H = BUB_W * DS, BUB_H * DS
     im = Image.new("RGBA", (W, H), (0, 0, 0, 0))
     d = ImageDraw.Draw(im)
     lw = int(2.6 * DS)
-    body = [2 * DS, BODY_TOP * DS, W - 2 * DS, H - 2 * DS]
-    radius = (body[3] - body[1]) // 2          # half-height -> smooth ellipse ends
-    d.rounded_rectangle(body, radius=radius, fill=body_fill,
+    body = [MARGIN * DS, BODY_TOP * DS, W - MARGIN * DS, H - MARGIN * DS]
+    d.rounded_rectangle(body, radius=RADIUS * DS, fill=body_fill,
                         outline=OUTLINE_C, width=lw)
     bow = bow_img.copy()
-    bow.thumbnail((int(22 * DS), int(22 * DS)), Image.LANCZOS)
-    bx = (W - 2 * DS) - int(bow.width * 0.74)
-    by = BODY_TOP * DS - int(bow.height * 0.55)
+    bow.thumbnail((int(20 * DS), int(15 * DS)), Image.LANCZOS)   # full-size, but compact (gentle tilt)
+    bx = W - 1 * DS - bow.width          # tucked into the top-right corner
+    by = 0
     im.alpha_composite(bow, (bx, by))
     return im, (bx, by + bow.height)
 
 recv_m, (rbx, rby) = _bubble_master(BOW, WHITE)
 recv_sel_m, _ = _bubble_master(BOW, (244, 244, 244))
-# sender = exactly the same shape + bow position, only the bow colour differs
-send_m, _ = _bubble_master(BOW_BURG, WHITE)
-send_sel_m, _ = _bubble_master(BOW_BURG, (244, 244, 244))
+# sender = same bubble shape; bow is straightened + hot pink (#ff69b4)
+send_m, _ = _bubble_master(BOW_SENDER, WHITE)
+send_sel_m, _ = _bubble_master(BOW_SENDER, (244, 244, 244))
 
-# cap (1x): cover the bow (horizontally + vertically) and the corner radius
-RADIUS1 = (BUB_H - BODY_TOP - 2) // 2
-CAP1X = max(RADIUS1 + 2, int((BUB_W * DS - rbx) / DS) + 1)
-CAP1Y = max(RADIUS1 + 2, int(rby / DS) + 1)
+# The 9-slice cap is sized to contain ONLY the bow (+ a small margin), NOT the
+# body's rounded corner. This keeps the cap small (~pastel's proven 20px), so the
+# bubble's minimum 9-slice size stays small and KakaoTalk never has to scale a
+# short message's bubble (which was squishing the bow, making it vary by length).
+# The rounded corner may extend a few px past the cap -- that distorts only the
+# smooth corner curve imperceptibly, exactly as the original pastel theme did.
+bow_x = math.ceil((BUB_W * DS - rbx) / DS)
+bow_y = math.ceil(rby / DS)
+# Asymmetric 9-slice cap. KakaoTalk's two cap values are VERTICAL then HORIZONTAL
+# (top/bottom, then left/right) -- real themes use e.g. `10px 32px`.
+#  - horizontal cap (left/right) covers the wide bow; short messages just pad.
+#  - vertical cap (top/bottom) is small, so a single-line bubble shrinks its
+#    straight vertical middle WITHOUT scaling the image -> the bow never gets
+#    squished or varies with message length.
+# Each cap must be >= the corner radius so the rounded corners don't overlap at
+# minimum size.
+CAP1X = max(bow_x, RADIUS) + 2     # horizontal cap (left/right)
+CAP1Y = max(bow_y, RADIUS) + 2     # vertical cap (top/bottom)
+assert 2 * CAP1X < BUB_W and 2 * CAP1Y < BUB_H, "cap leaves no stretchable middle"
+
+# Keep the CSS cap in lock-step with the generated art: rewrite every
+# `chatroomBubble*.png' Npx Npx` in KakaoTalkTheme.css to this cap.
+import re
+css_path = os.path.join(ROOT, "KakaoTalkTheme.css")
+with open(css_path) as fh:
+    css = fh.read()
+css2 = re.sub(r"(chatroomBubble\w+\.png')\s+\d+px\s+\d+px",
+              rf"\1 {CAP1Y}px {CAP1X}px", css)   # KakaoTalk order: vertical horizontal
+if css2 != css:
+    with open(css_path, "w") as fh:
+        fh.write(css2)
+    print(f"  patched CSS bubble cap -> {CAP1Y}px {CAP1X}px (vertical horizontal)")
 
 def write_bubble(prefix, master, sel_master):
     two = (BUB_W * 2, BUB_H * 2)
@@ -217,7 +301,7 @@ send3 = send_m.resize((BUB_W * 3, BUB_H * 3), Image.LANCZOS)
 print("backgrounds...")
 def bow_pattern_bg(size, seed=7, alpha=24, scale=1.0):
     w, h = size
-    base = Image.new("RGBA", (w, h), WHITE + (255,))
+    base = Image.new("RGBA", (w, h), PINK_BG + (255,))
     layer = Image.new("RGBA", (w, h), (0, 0, 0, 0))
     rnd = random.Random(seed)
     unit = max(40, int(min(w, h) / 7 * scale))
@@ -247,8 +331,8 @@ chat = bow_pattern_bg((846, 1503), seed=11, alpha=22)
 save_img(chat, "chatroomBgImage@2x.png"); save_img(chat, "chatroomBgImage@3x.png")
 main = bow_pattern_bg((846, 1503), seed=5, alpha=20)
 save_img(main, "mainBgImage@2x.png"); save_img(main, "mainBgImage@3x.png")
-save_img(Image.new("RGB", (750, 106), WHITE), "maintabBgImage@2x.png")
-save_img(Image.new("RGB", (1125, 159), WHITE), "maintabBgImage@3x.png")
+save_img(Image.new("RGB", (750, 106), PINK_BG), "maintabBgImage@2x.png")
+save_img(Image.new("RGB", (1125, 159), PINK_BG), "maintabBgImage@3x.png")
 
 
 # ===========================================================================
@@ -371,10 +455,20 @@ def nine_slice(img, capx, capy, tw, th):
 cap3x = int(CAP1X * 3)
 cap3y = int(CAP1Y * 3)
 
-# (a) stretch proof
-verify = Image.new("RGBA", (820, 300), WHITE + (255,))
-for i, (w, h) in enumerate([(recv3.width, recv3.height), (260, recv3.height), (260, 150), (150, 150)]):
-    verify.alpha_composite(nine_slice(recv3, cap3x, cap3y, w, h), (12 + i * 200, 20))
+# (a) stretch proof -- horizontal (long text), vertical (many lines), and both;
+#     the outline must stay clean in every case.
+nw, nh = recv3.width, recv3.height
+cases = [(nw, nh), (320, nh), (520, nh), (nw, 230), (nw, 360), (420, 300)]
+verify = Image.new("RGBA", (1180, 760), WHITE + (255,))
+x = 16
+y = 20
+rowh = 0
+for (w, h) in cases:
+    if x + w > 1180 - 16:
+        x = 16; y += rowh + 24; rowh = 0
+    verify.alpha_composite(nine_slice(recv3, cap3x, cap3y, w, h), (x, y))
+    x += w + 24
+    rowh = max(rowh, h)
 verify.convert("RGB").save(os.path.join(PREV, "verify_stretch.png"))
 
 # (b) chat mockup
@@ -385,7 +479,7 @@ f_logo = font("Fredoka.ttf", 22)
 f_body = font("Quicksand.ttf", 15)
 f_sub = font("Quicksand.ttf", 12)
 
-md.rectangle([0, 0, PW, 54], fill=WHITE)
+md.rectangle([0, 0, PW, 54], fill=PINK_BG)
 md.line([0, 54, PW, 54], fill=(232, 232, 232), width=1)
 lb = BOW.copy(); lb.thumbnail((30, 22), Image.LANCZOS)
 mock.alpha_composite(lb, (PW // 2 - 78, 16))
@@ -414,7 +508,7 @@ msg("yes!! so clean and cute", "R", 188)
 msg("real kitty vibes now", "L", 290)
 
 TBH = 60
-md.rectangle([0, PH - TBH, PW, PH], fill=WHITE)
+md.rectangle([0, PH - TBH, PW, PH], fill=PINK_BG)
 md.line([0, PH - TBH, PW, PH - TBH], fill=(232, 232, 232), width=1)
 tabs = [("Friends", True), ("Chats", False), ("Open Chat", False),
         ("Shopping", False), ("More", False)]

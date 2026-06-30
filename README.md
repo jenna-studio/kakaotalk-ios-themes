@@ -19,6 +19,11 @@ are no binary art blobs to hand-edit.
   <img src="themes/pixel-daydream/preview/preview.png" width="320" alt="Pixel Daydream preview">
 </p>
 
+**Download:** prebuilt packages live in [`releases/`](releases) — e.g.
+[`releases/KittyTalk.ktheme`](releases/KittyTalk.ktheme) (open the file on GitHub
+and click **Download**). Or build any theme yourself with `./scripts/build.sh`
+(see [Build](#build)).
+
 ---
 
 ## How an iOS KakaoTalk theme works

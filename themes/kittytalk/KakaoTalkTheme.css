@@ -4,7 +4,7 @@
    A minimal Sanrio x Apple look: predominantly white, black outlines and
    typography, red (#E6002D) as the only accent, a little bow as the one
    recurring motif. Receiver bubbles wear a red bow, sender bubbles a
-   burgundy bow. Built to the official KakaoTalk 8.0.0 iOS Theme guide.
+   hot-pink bow (same tilt). Built to the official KakaoTalk 8.0.0 iOS guide.
 
    Package layout (.ktheme = zip):
      KakaoTalkTheme.css   (this file, at the root)
@@ -39,7 +39,7 @@ HeaderStyle-Main
 
 MainViewStyle-Primary
 {
-  background-color: #FFFFFF;
+  background-color: #FFECF2;
   -ios-background-image: 'mainBgImage.png';
   -ios-text-color: #111111;
   -ios-highlighted-text-color: #111111;
@@ -55,7 +55,7 @@ MainViewStyle-Primary
 
 MainViewStyle-Secondary
 {
-  background-color: #F6F6F6;
+  background-color: #FBEAF0;
 }
 
 SectionTitleStyle-Main
@@ -79,7 +79,7 @@ ButtonStyle-AddFriend
 TabBarStyle-Main
 {
   -ios-background-image: 'maintabBgImage.png';
-  background-color: #FFFFFF;
+  background-color: #FFECF2;
   -ios-friends-normal-icon-image: 'maintabIcoFriends.png';
   -ios-friends-selected-icon-image: 'maintabIcoFriendsSelected.png';
   -ios-chats-normal-icon-image: 'maintabIcoChats.png';
@@ -96,15 +96,35 @@ TabBarStyle-Main
   -ios-more-selected-icon-image: 'maintabIcoMoreSelected.png';
 }
 
+/* The tab labels (Friends / Chats / ...) are styled by a SEPARATE selector from
+   TabBarStyle. Its default text colour is white, which is invisible on a light
+   bar -- so set it explicitly: black normally, red on the selected tab. Both
+   the 8.0.0 (-Main) and legacy (1) selector names are included for safety. */
+TabBarTitleStyle-Main
+{
+  -ios-text-color: #111111;
+  -ios-text-alpha: 1.0;
+  -ios-selected-text-color: #E6002D;
+  -ios-selected-text-alpha: 1.0;
+}
+
+TabBarTitleStyle1
+{
+  -ios-text-color: #111111;
+  -ios-text-alpha: 1.0;
+  -ios-selected-text-color: #E6002D;
+  -ios-selected-text-alpha: 1.0;
+}
+
 BackgroundStyle-ChatRoom
 {
-  background-color: #FFFFFF;
+  background-color: #FFECF2;
   -ios-background-image: 'chatroomBgImage.png';
 }
 
 InputBarStyle-Chat
 {
-  background-color: #FFFFFF;
+  background-color: #FFECF2;
   -ios-send-normal-background-color: #E6002D;
   -ios-send-highlighted-background-color: #C30026;
   -ios-send-normal-foreground-color: #FFFFFF;
@@ -115,10 +135,10 @@ InputBarStyle-Chat
 
 MessageCellStyle-Send
 {
-  -ios-background-image: 'chatroomBubbleSend01.png' 20px 20px;
-  -ios-selected-background-image: 'chatroomBubbleSend01Selected.png' 20px 20px;
-  -ios-group-background-image: 'chatroomBubbleSend02.png' 20px 20px;
-  -ios-group-selected-background-image: 'chatroomBubbleSend02Selected.png' 20px 20px;
+  -ios-background-image: 'chatroomBubbleSend01.png' 16px 23px;
+  -ios-selected-background-image: 'chatroomBubbleSend01Selected.png' 16px 23px;
+  -ios-group-background-image: 'chatroomBubbleSend02.png' 16px 23px;
+  -ios-group-selected-background-image: 'chatroomBubbleSend02Selected.png' 16px 23px;
   -ios-title-edgeinsets: 16px 16px 8px 14px;
   -ios-group-title-edgeinsets: 16px 16px 8px 14px;
   -ios-text-color: #111111;
@@ -128,10 +148,10 @@ MessageCellStyle-Send
 
 MessageCellStyle-Receive
 {
-  -ios-background-image: 'chatroomBubbleReceive01.png' 20px 20px;
-  -ios-selected-background-image: 'chatroomBubbleReceive01Selected.png' 20px 20px;
-  -ios-group-background-image: 'chatroomBubbleReceive02.png' 20px 20px;
-  -ios-group-selected-background-image: 'chatroomBubbleReceive02Selected.png' 20px 20px;
+  -ios-background-image: 'chatroomBubbleReceive01.png' 16px 23px;
+  -ios-selected-background-image: 'chatroomBubbleReceive01Selected.png' 16px 23px;
+  -ios-group-background-image: 'chatroomBubbleReceive02.png' 16px 23px;
+  -ios-group-selected-background-image: 'chatroomBubbleReceive02Selected.png' 16px 23px;
   -ios-title-edgeinsets: 16px 14px 8px 16px;
   -ios-group-title-edgeinsets: 16px 14px 8px 16px;
   -ios-text-color: #111111;
@@ -141,7 +161,7 @@ MessageCellStyle-Receive
 
 BackgroundStyle-Passcode
 {
-  background-color: #FFFFFF;
+  background-color: #FFECF2;
   -ios-background-image: 'passcodeBgImage.png';
 }
 
@@ -160,14 +180,14 @@ PasscodeStyle
   -ios-bullet-selected-second-image: 'passcodeImgCode02Selected.png';
   -ios-bullet-selected-third-image: 'passcodeImgCode03Selected.png';
   -ios-bullet-selected-fourth-image: 'passcodeImgCode04Selected.png';
-  -ios-keypad-background-color: #FFFFFF;
+  -ios-keypad-background-color: #FFF4F8;
   -ios-keypad-text-normal-color: #111111;
   -ios-keypad-number-highlighted-image: 'passcodeKeypadPressed.png';
 }
 
 BackgroundStyle-MessageNotificationBar
 {
-  background-color: #FFFFFF;
+  background-color: #FFECF2;
 }
 
 LabelStyle-MessageNotificationBarName
@@ -182,7 +202,7 @@ LabelStyle-MessageNotificationBarMessage
 
 BackgroundStyle-DirectShareBar
 {
-  background-color: #FFFFFF;
+  background-color: #FFECF2;
 }
 
 LabelStyle-DirectShareBarName
