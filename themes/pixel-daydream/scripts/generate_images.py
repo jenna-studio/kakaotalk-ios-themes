@@ -123,6 +123,18 @@ BUTTERFLY = [
     ".oWo...oWo.",
 ]
 
+# compact butterfly for the title bar: narrower (9w) and shorter (7h) so it
+# sits with comfortable padding inside the bar
+BUTTERFLY_SM = [
+    ".o.....o.",
+    "oWWo.oWWo",
+    "oWWWoWWWo",
+    ".oWWbWWo.",
+    "oWWWoWWWo",
+    "oWWo.oWWo",
+    ".o.....o.",
+]
+
 HEART = [
     ".oo.oo.",
     "oXXoXXo",
@@ -324,19 +336,17 @@ class Bub:
 
 # panel_stops are now a RADIAL ramp: centre -> edge. The edge equals the window
 # frame colour so the panel blends seamlessly into the frame.
-# panel_stops are a LINEAR vertical ramp (top -> bottom).
-# received = pink window: soft butter-yellow -> warm pink -> pink frame
+# panel_stops = [top-fade colour, BODY colour, bottom-fade colour].
+# received = pink window: pale-yellow top fade -> warm cream body -> pink bottom
 RECV = Bub(border=(232, 146, 192), frame=(247, 199, 223),
            title_top=(250, 202, 225), title_bot=(238, 197, 227),
-           panel_stops=[(255, 248, 224), (253, 228, 230), (250, 210, 226), (247, 199, 223)],
+           panel_stops=[(255, 247, 228), (255, 235, 227), (248, 206, 225)],
            div=(236, 158, 200), glow=(252, 206, 232, 150), wing=(132, 222, 214))
 
-# sent = periwinkle window: richer hologram -- cool white -> mint -> lavender
-# -> periwinkle -> blue (more colour, still soft)
+# sent = periwinkle window: light top fade -> soft mint-periwinkle body -> blue
 SENT = Bub(border=(148, 166, 224), frame=(199, 213, 240),
            title_top=(201, 219, 245), title_bot=(204, 224, 234),
-           panel_stops=[(238, 245, 250), (205, 237, 229), (215, 209, 246),
-                        (204, 217, 245), (199, 213, 240)],
+           panel_stops=[(235, 244, 249), (210, 227, 239), (199, 213, 240)],
            div=(158, 178, 226), glow=(200, 216, 246, 150), wing=(140, 224, 204))
 
 PANEL_ALPHA = 242             # frosted: lets a touch of background through
@@ -391,17 +401,18 @@ def _bubble_master(b):
         [px0, py0 + int(DS * 0.9), px1, py1 + int(DS * 0.9)], radius=r_in, fill=(72, 60, 104, 85))
     out.alpha_composite(sh.filter(ImageFilter.GaussianBlur(DS * 0.8)))
 
-    # LINEAR vertical gradient. The whole colour transition lives in the
-    # 9-slice stretch zone (between the caps); the cap zones are solid and equal
-    # to the gradient's end colours. KakaoTalk then scales the gradient evenly
-    # over the middle of any-height bubble while the caps continue the end
-    # colours -- so even long messages get an evenly dispersed gradient.
+    # LINEAR gradient with a FIXED on-screen size regardless of message length:
+    # the colour fades live in the fixed 9-slice caps (a top fade + a bottom
+    # fade) and the stretch zone is a SOLID body colour. So a long bubble just
+    # gets more solid body in the middle -- the gradient itself looks identical
+    # on short and long messages (no stretched-out "too big" gradient).
     mid0, mid1 = CAP * DS, H - CAP * DS
+    top, mid, bot = b.panel_stops[0], b.panel_stops[1], b.panel_stops[-1]
     pfill = Image.new("RGBA", (W, H), (0, 0, 0, 0))
     pd = ImageDraw.Draw(pfill)
-    pd.rectangle([0, py0, W, mid0], fill=b.panel_stops[0] + (255,))
-    pfill.paste(_grad_v_stops(W, mid1 - mid0, b.panel_stops).convert("RGBA"), (0, mid0))
-    pd.rectangle([0, mid1, W, py1], fill=b.panel_stops[-1] + (255,))
+    pfill.paste(_grad_v(W, mid0 - py0, top, mid).convert("RGBA"), (0, py0))   # top fade
+    pd.rectangle([0, mid0, W, mid1], fill=mid + (255,))                       # solid body
+    pfill.paste(_grad_v(W, py1 - mid1, mid, bot).convert("RGBA"), (0, mid1))  # bottom fade
     out.paste(pfill, (0, 0), pmask)
 
     # soft glossy sheen across the top of the panel (subtle, vertical fade)
@@ -440,16 +451,17 @@ def _overlay_widgets(img, scale, b):
     """Crisp pixel butterfly + minimize/close buttons, inset from the edges so
     they sit safely inside the 24px corner cap and never get cropped."""
     d = ImageDraw.Draw(img)
-    # pixel butterfly, inset from the LEFT, vertically centred in the title bar
-    draw_pixels(d, BUTTERFLY, pal_butterfly(b.wing, darken(b.wing, 0.62)),
-                9 * scale, 4 * scale, scale)
+    # compact pixel butterfly, inset from the LEFT, centred in the title bar
+    # with generous padding above/below (9w x 7h -> ~4px padding in a 15px bar)
+    draw_pixels(d, BUTTERFLY_SM, pal_butterfly(b.wing, darken(b.wing, 0.62)),
+                10 * scale, 5 * scale, scale)
     # minimize + close buttons, inset from the RIGHT, centred in the title bar
     edge = darken(b.border, 0.88)
     bfill = (255, 253, 255, 240)
-    size = 7
+    size = 6
     for i, kind in enumerate(("min", "close")):
-        x = (79 + i * 10) * scale
-        y = 5 * scale
+        x = (81 + i * 9) * scale
+        y = 6 * scale
         x1, y1 = x + size * scale, y + size * scale
         d.rectangle([x, y, x1, y1], fill=bfill, outline=edge, width=max(1, scale // 2))
         if kind == "min":
