@@ -205,10 +205,10 @@ DS = 12
 # 1x geometry. A rounded RECTANGLE (radius < half-height/width) keeps a genuine
 # straight run on every edge, so the 9-slice stays perfectly outlined whether
 # KakaoTalk stretches it horizontally (long text) OR vertically (many lines).
-BUB_W, BUB_H = 66, 58
+BUB_W, BUB_H = 58, 52
 MARGIN = 2
-BODY_TOP = 7                   # small headroom so the bow overhangs the top edge
-RADIUS = 15                    # 1x corner radius (< straight runs on all sides)
+BODY_TOP = 9                   # small headroom so the bow overhangs the top edge
+RADIUS = 14                    # 1x corner radius
 OUTLINE_C = (26, 26, 26)       # matches the bow's black outline
 import math
 
@@ -221,7 +221,7 @@ def _bubble_master(bow_img, body_fill):
     d.rounded_rectangle(body, radius=RADIUS * DS, fill=body_fill,
                         outline=OUTLINE_C, width=lw)
     bow = bow_img.copy()
-    bow.thumbnail((int(20 * DS), int(18 * DS)), Image.LANCZOS)   # smaller -> more cap margin
+    bow.thumbnail((int(15 * DS), int(14 * DS)), Image.LANCZOS)   # small -> small cap
     bx = W - 1 * DS - bow.width          # tucked into the top-right corner
     by = 0
     im.alpha_composite(bow, (bx, by))
@@ -233,19 +233,15 @@ recv_sel_m, _ = _bubble_master(BOW, (244, 244, 244))
 send_m, _ = _bubble_master(BOW_SENDER, WHITE)
 send_sel_m, _ = _bubble_master(BOW_SENDER, (244, 244, 244))
 
-# Caps (1x) must contain BOTH the rounded corners and the bow, on every side.
-# corner reach: left/right need MARGIN+RADIUS; top needs BODY_TOP+RADIUS; bottom
-# needs MARGIN+RADIUS. bow reach: from the right edge to the bow's left, and from
-# the top edge to the bow's bottom.
-corner_x = MARGIN + RADIUS
-corner_y = max(BODY_TOP + RADIUS, MARGIN + RADIUS)
+# The 9-slice cap is sized to contain ONLY the bow (+ a small margin), NOT the
+# body's rounded corner. This keeps the cap small (~pastel's proven 20px), so the
+# bubble's minimum 9-slice size stays small and KakaoTalk never has to scale a
+# short message's bubble (which was squishing the bow, making it vary by length).
+# The rounded corner may extend a few px past the cap -- that distorts only the
+# smooth corner curve imperceptibly, exactly as the original pastel theme did.
 bow_x = math.ceil((BUB_W * DS - rbx) / DS)
 bow_y = math.ceil(rby / DS)
-# Give the bow a generous margin inside the corner cap (6px @1x = 18px @3x) so a
-# slight cap mismatch on-device can never let it spill into the stretch zone and
-# skew with message length. One symmetric cap (order-independent in the CSS).
-BOW_MARGIN = 6
-CAP1 = max(corner_x, corner_y, bow_x + BOW_MARGIN, bow_y + BOW_MARGIN)
+CAP1 = max(bow_x, bow_y) + 3
 CAP1X = CAP1Y = CAP1
 assert 2 * CAP1 < BUB_W and 2 * CAP1 < BUB_H, "cap leaves no stretchable middle"
 
