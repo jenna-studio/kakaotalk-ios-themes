@@ -74,7 +74,7 @@ def chatroom():
     def bubble(lines, side, y, ts):
         tw = max(int(d.textlength(ln, font=ft)) for ln in lines)
         bw = max(150, tw + 52)
-        bh = max(126, TITLE_PX + 12 + len(lines) * lh + 18)
+        bh = max(120, TITLE_PX + 8 + len(lines) * lh + 12)
         img = nine_slice(recv if side == "L" else send, CAP3, bw, bh)
         if side == "L":
             s.alpha_composite(prof, (12, y + 16))
@@ -82,7 +82,7 @@ def chatroom():
         else:
             bx, tcol = W - 14 - bw, (66, 66, 108)
         s.alpha_composite(img, (bx, y))
-        ty0 = y + TITLE_PX + 14            # first line, inside the lower panel
+        ty0 = y + TITLE_PX + 10            # first line, inside the lower panel
         for i, ln in enumerate(lines):
             d.text((bx + 26, ty0 + i * lh), ln, font=ft, fill=tcol, anchor="lm")
         if side == "L":

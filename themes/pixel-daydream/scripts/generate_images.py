@@ -320,17 +320,17 @@ class Bub:
 
 # panel_stops are now a RADIAL ramp: centre -> edge. The edge equals the window
 # frame colour so the panel blends seamlessly into the frame.
-# received = pink window: bright centre -> soft pink -> pink frame edge
+# received = pink window: white centre -> faint mint -> lilac -> pink frame edge
 RECV = Bub(border=(232, 146, 192), frame=(247, 199, 223),
            title_top=(250, 202, 225), title_bot=(238, 197, 227),
-           panel_stops=[(255, 251, 254), (252, 226, 240), (247, 199, 223)],
+           panel_stops=[(255, 252, 255), (233, 247, 241), (243, 229, 247), (247, 200, 223)],
            div=(236, 158, 200), glow=(252, 206, 232, 150), wing=(132, 222, 214))
 
-# sent = periwinkle window: pale centre -> periwinkle -> blue frame edge
+# sent = periwinkle window: pale centre -> faint mint -> periwinkle -> blue edge
 # (blue blended through so it reads soft, not vibrant, and melts into the frame)
 SENT = Bub(border=(148, 166, 224), frame=(199, 213, 240),
            title_top=(201, 219, 245), title_bot=(204, 224, 234),
-           panel_stops=[(234, 231, 249), (214, 215, 245), (199, 213, 240)],
+           panel_stops=[(233, 233, 250), (215, 234, 238), (209, 217, 245), (199, 213, 240)],
            div=(158, 178, 226), glow=(200, 216, 246, 150), wing=(140, 224, 204))
 
 PANEL_ALPHA = 242             # frosted: lets a touch of background through
