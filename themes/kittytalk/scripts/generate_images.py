@@ -169,8 +169,8 @@ FACE = load_face()
 BUBBLE = load_bubble()
 BOW = crop_bow(BUBBLE)
 BOW_BURG = recolor_red_to(BOW, BURGUNDY)
-# sender bow: straightened (not crooked) and recoloured hot pink (#ff69b4)
-BOW_SENDER = recolor_red_to(straighten(BOW), (255, 105, 180))
+# sender bow: same tilt as the receiver's red bow, recoloured hot pink (#ff69b4)
+BOW_SENDER = recolor_red_to(BOW, (255, 105, 180))
 
 
 # ===========================================================================
