@@ -116,8 +116,8 @@ MessageCellStyle-Send
   -ios-selected-background-image: 'chatroomBubbleSend01Selected.png' 22px 22px;
   -ios-group-background-image: 'chatroomBubbleSend02.png' 22px 22px;
   -ios-group-selected-background-image: 'chatroomBubbleSend02Selected.png' 22px 22px;
-  -ios-title-edgeinsets: 24px 16px 12px 16px;
-  -ios-group-title-edgeinsets: 24px 16px 12px 16px;
+  -ios-title-edgeinsets: 30px 18px 14px 18px;
+  -ios-group-title-edgeinsets: 30px 18px 14px 18px;
   -ios-text-color: #45456E;
   -ios-selected-text-color: #45456E;
   -ios-unread-text-color: #6E7BC8;
@@ -129,8 +129,8 @@ MessageCellStyle-Receive
   -ios-selected-background-image: 'chatroomBubbleReceive01Selected.png' 22px 22px;
   -ios-group-background-image: 'chatroomBubbleReceive02.png' 22px 22px;
   -ios-group-selected-background-image: 'chatroomBubbleReceive02Selected.png' 22px 22px;
-  -ios-title-edgeinsets: 24px 16px 12px 16px;
-  -ios-group-title-edgeinsets: 24px 16px 12px 16px;
+  -ios-title-edgeinsets: 30px 18px 14px 18px;
+  -ios-group-title-edgeinsets: 30px 18px 14px 18px;
   -ios-text-color: #6B4A60;
   -ios-selected-text-color: #6B4A60;
   -ios-unread-text-color: #EE6FA6;
