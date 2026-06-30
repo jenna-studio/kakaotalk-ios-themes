@@ -37,11 +37,12 @@ os.makedirs(PREV, exist_ok=True)
 
 # ---- palette --------------------------------------------------------------
 WHITE    = (255, 255, 255)
+PINK_BG  = (255, 236, 242)     # #FFECF2  pastel pink background
 RED      = (230, 0, 45)        # #E6002D
 BURGUNDY = (150, 14, 38)       # sender bow
 BLACK    = (17, 17, 17)
 LGRAY    = (246, 246, 246)
-PATTERN  = (255, 158, 182)     # faint background tint (low alpha)
+PATTERN  = (236, 120, 160)     # faint background bow tint (low alpha)
 
 
 def save_img(img, name):
@@ -259,7 +260,7 @@ send3 = send_m.resize((BUB_W * 3, BUB_H * 3), Image.LANCZOS)
 print("backgrounds...")
 def bow_pattern_bg(size, seed=7, alpha=24, scale=1.0):
     w, h = size
-    base = Image.new("RGBA", (w, h), WHITE + (255,))
+    base = Image.new("RGBA", (w, h), PINK_BG + (255,))
     layer = Image.new("RGBA", (w, h), (0, 0, 0, 0))
     rnd = random.Random(seed)
     unit = max(40, int(min(w, h) / 7 * scale))
@@ -289,8 +290,8 @@ chat = bow_pattern_bg((846, 1503), seed=11, alpha=22)
 save_img(chat, "chatroomBgImage@2x.png"); save_img(chat, "chatroomBgImage@3x.png")
 main = bow_pattern_bg((846, 1503), seed=5, alpha=20)
 save_img(main, "mainBgImage@2x.png"); save_img(main, "mainBgImage@3x.png")
-save_img(Image.new("RGB", (750, 106), WHITE), "maintabBgImage@2x.png")
-save_img(Image.new("RGB", (1125, 159), WHITE), "maintabBgImage@3x.png")
+save_img(Image.new("RGB", (750, 106), PINK_BG), "maintabBgImage@2x.png")
+save_img(Image.new("RGB", (1125, 159), PINK_BG), "maintabBgImage@3x.png")
 
 
 # ===========================================================================
@@ -437,7 +438,7 @@ f_logo = font("Fredoka.ttf", 22)
 f_body = font("Quicksand.ttf", 15)
 f_sub = font("Quicksand.ttf", 12)
 
-md.rectangle([0, 0, PW, 54], fill=WHITE)
+md.rectangle([0, 0, PW, 54], fill=PINK_BG)
 md.line([0, 54, PW, 54], fill=(232, 232, 232), width=1)
 lb = BOW.copy(); lb.thumbnail((30, 22), Image.LANCZOS)
 mock.alpha_composite(lb, (PW // 2 - 78, 16))
@@ -466,7 +467,7 @@ msg("yes!! so clean and cute", "R", 188)
 msg("real kitty vibes now", "L", 290)
 
 TBH = 60
-md.rectangle([0, PH - TBH, PW, PH], fill=WHITE)
+md.rectangle([0, PH - TBH, PW, PH], fill=PINK_BG)
 md.line([0, PH - TBH, PW, PH - TBH], fill=(232, 232, 232), width=1)
 tabs = [("Friends", True), ("Chats", False), ("Open Chat", False),
         ("Shopping", False), ("More", False)]

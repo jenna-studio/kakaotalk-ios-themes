@@ -39,7 +39,7 @@ HeaderStyle-Main
 
 MainViewStyle-Primary
 {
-  background-color: #FFFFFF;
+  background-color: #FFECF2;
   -ios-background-image: 'mainBgImage.png';
   -ios-text-color: #111111;
   -ios-highlighted-text-color: #111111;
@@ -55,7 +55,7 @@ MainViewStyle-Primary
 
 MainViewStyle-Secondary
 {
-  background-color: #F6F6F6;
+  background-color: #FBEAF0;
 }
 
 SectionTitleStyle-Main
@@ -79,7 +79,7 @@ ButtonStyle-AddFriend
 TabBarStyle-Main
 {
   -ios-background-image: 'maintabBgImage.png';
-  background-color: #FFFFFF;
+  background-color: #FFECF2;
   -ios-friends-normal-icon-image: 'maintabIcoFriends.png';
   -ios-friends-selected-icon-image: 'maintabIcoFriendsSelected.png';
   -ios-chats-normal-icon-image: 'maintabIcoChats.png';
@@ -98,13 +98,13 @@ TabBarStyle-Main
 
 BackgroundStyle-ChatRoom
 {
-  background-color: #FFFFFF;
+  background-color: #FFECF2;
   -ios-background-image: 'chatroomBgImage.png';
 }
 
 InputBarStyle-Chat
 {
-  background-color: #FFFFFF;
+  background-color: #FFECF2;
   -ios-send-normal-background-color: #E6002D;
   -ios-send-highlighted-background-color: #C30026;
   -ios-send-normal-foreground-color: #FFFFFF;
@@ -141,7 +141,7 @@ MessageCellStyle-Receive
 
 BackgroundStyle-Passcode
 {
-  background-color: #FFFFFF;
+  background-color: #FFECF2;
   -ios-background-image: 'passcodeBgImage.png';
 }
 
@@ -160,14 +160,14 @@ PasscodeStyle
   -ios-bullet-selected-second-image: 'passcodeImgCode02Selected.png';
   -ios-bullet-selected-third-image: 'passcodeImgCode03Selected.png';
   -ios-bullet-selected-fourth-image: 'passcodeImgCode04Selected.png';
-  -ios-keypad-background-color: #FFFFFF;
+  -ios-keypad-background-color: #FFF4F8;
   -ios-keypad-text-normal-color: #111111;
   -ios-keypad-number-highlighted-image: 'passcodeKeypadPressed.png';
 }
 
 BackgroundStyle-MessageNotificationBar
 {
-  background-color: #FFFFFF;
+  background-color: #FFECF2;
 }
 
 LabelStyle-MessageNotificationBarName
@@ -182,7 +182,7 @@ LabelStyle-MessageNotificationBarMessage
 
 BackgroundStyle-DirectShareBar
 {
-  background-color: #FFFFFF;
+  background-color: #FFECF2;
 }
 
 LabelStyle-DirectShareBarName
