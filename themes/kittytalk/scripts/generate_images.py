@@ -168,8 +168,14 @@ def crop_bow(bubble):
 FACE = load_face()
 BUBBLE = load_bubble()
 BOW = crop_bow(BUBBLE)
+# Deskew the bow, then give it a small, consistent tilt. The original bow sits at
+# a steep ~26 degrees, whose large bounding box forces a big 9-slice corner cap
+# (which made KakaoTalk stretch/scale the bow with message length). A gently
+# tilted bow is compact, fits a small cap, and keeps its exact original shape on
+# every bubble. Same full-size bow -- only the angle changes.
+BOW = trim(straighten(BOW).rotate(-12, expand=True, resample=Image.BICUBIC))
 BOW_BURG = recolor_red_to(BOW, BURGUNDY)
-# sender bow: same tilt as the receiver's red bow, recoloured hot pink (#ff69b4)
+# sender bow: same bow + tilt, recoloured hot pink (#ff69b4)
 BOW_SENDER = recolor_red_to(BOW, (255, 105, 180))
 
 
@@ -208,7 +214,7 @@ DS = 12
 BUB_W, BUB_H = 58, 52
 MARGIN = 2
 BODY_TOP = 9                   # small headroom so the bow overhangs the top edge
-RADIUS = 14                    # 1x corner radius
+RADIUS = 11                    # 1x corner radius (<= vertical cap so corners fit)
 OUTLINE_C = (26, 26, 26)       # matches the bow's black outline
 import math
 
@@ -221,7 +227,7 @@ def _bubble_master(bow_img, body_fill):
     d.rounded_rectangle(body, radius=RADIUS * DS, fill=body_fill,
                         outline=OUTLINE_C, width=lw)
     bow = bow_img.copy()
-    bow.thumbnail((int(15 * DS), int(14 * DS)), Image.LANCZOS)   # small -> small cap
+    bow.thumbnail((int(20 * DS), int(15 * DS)), Image.LANCZOS)   # full-size, but compact (gentle tilt)
     bx = W - 1 * DS - bow.width          # tucked into the top-right corner
     by = 0
     im.alpha_composite(bow, (bx, by))
@@ -241,9 +247,17 @@ send_sel_m, _ = _bubble_master(BOW_SENDER, (244, 244, 244))
 # smooth corner curve imperceptibly, exactly as the original pastel theme did.
 bow_x = math.ceil((BUB_W * DS - rbx) / DS)
 bow_y = math.ceil(rby / DS)
-CAP1 = max(bow_x, bow_y) + 3
-CAP1X = CAP1Y = CAP1
-assert 2 * CAP1 < BUB_W and 2 * CAP1 < BUB_H, "cap leaves no stretchable middle"
+# Asymmetric 9-slice cap. KakaoTalk's two cap values are VERTICAL then HORIZONTAL
+# (top/bottom, then left/right) -- real themes use e.g. `10px 32px`.
+#  - horizontal cap (left/right) covers the wide bow; short messages just pad.
+#  - vertical cap (top/bottom) is small, so a single-line bubble shrinks its
+#    straight vertical middle WITHOUT scaling the image -> the bow never gets
+#    squished or varies with message length.
+# Each cap must be >= the corner radius so the rounded corners don't overlap at
+# minimum size.
+CAP1X = max(bow_x, RADIUS) + 2     # horizontal cap (left/right)
+CAP1Y = max(bow_y, RADIUS) + 2     # vertical cap (top/bottom)
+assert 2 * CAP1X < BUB_W and 2 * CAP1Y < BUB_H, "cap leaves no stretchable middle"
 
 # Keep the CSS cap in lock-step with the generated art: rewrite every
 # `chatroomBubble*.png' Npx Npx` in KakaoTalkTheme.css to this cap.
@@ -252,11 +266,11 @@ css_path = os.path.join(ROOT, "KakaoTalkTheme.css")
 with open(css_path) as fh:
     css = fh.read()
 css2 = re.sub(r"(chatroomBubble\w+\.png')\s+\d+px\s+\d+px",
-              rf"\1 {CAP1}px {CAP1}px", css)
+              rf"\1 {CAP1Y}px {CAP1X}px", css)   # KakaoTalk order: vertical horizontal
 if css2 != css:
     with open(css_path, "w") as fh:
         fh.write(css2)
-    print(f"  patched CSS bubble cap -> {CAP1}px {CAP1}px")
+    print(f"  patched CSS bubble cap -> {CAP1Y}px {CAP1X}px (vertical horizontal)")
 
 def write_bubble(prefix, master, sel_master):
     two = (BUB_W * 2, BUB_H * 2)
