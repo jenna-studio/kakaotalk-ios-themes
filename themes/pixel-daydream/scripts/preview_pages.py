@@ -69,7 +69,7 @@ def chatroom():
     # bubbles tall enough (>= 2*clamped-cap) that the 9-slice preserves that
     # title region 1:1, then anchor the text just below it -- mirroring how the
     # 34px top edge-inset reserves the title bar in the real app.
-    TITLE_PX = 62
+    TITLE_PX = 50
 
     def bubble(lines, side, y, ts):
         tw = max(int(d.textlength(ln, font=ft)) for ln in lines)

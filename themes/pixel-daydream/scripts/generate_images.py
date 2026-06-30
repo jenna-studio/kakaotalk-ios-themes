@@ -297,10 +297,10 @@ class Bub:
                    [d(c) for c in self.panel_stops], d(self.div), self.glow, d(self.wing))
 
 
-# received = pink window / pearly near-white panel (subtle top->bottom tint)
+# received = pink window / light vertical hologram panel (white->pink->lilac->mint)
 RECV = Bub(border=(232, 146, 192), frame=(247, 199, 223),
            title_top=(250, 202, 225), title_bot=(238, 197, 227),
-           panel_stops=[(255, 253, 255), (253, 247, 252), (249, 244, 252), (252, 240, 248)],
+           panel_stops=[(249, 250, 255), (251, 234, 244), (240, 235, 251), (233, 247, 241)],
            div=(236, 158, 200), glow=(252, 206, 232, 150), wing=(132, 222, 214))
 
 # sent = periwinkle window / vertical blue->lavender->pink->mint hologram panel
@@ -316,11 +316,15 @@ def _bubble_master(b):
     """Render the embossed, glossy hologram window at DS resolution."""
     W, H = BUB_W * DS, BUB_H * DS
     lw = max(2, int(1.6 * DS))
-    r_out = 18 * DS
-    title_h = 20 * DS
+    r_out = 16 * DS
+    title_h = 16 * DS
     margin = 6 * DS                  # frame thickness around the inset panel
-    r_in = 12 * DS
-    panel_gap = 5 * DS               # gap between title bar and the panel
+    r_in = 9 * DS
+    panel_gap = 3 * DS               # gap between title bar and the panel
+    # NB: title_h + panel_gap + r_in (+border) must stay <= CAP so BOTH the
+    # top AND bottom panel corners sit fully inside the 9-slice cap -- otherwise
+    # tall bubbles stretch the top corners only and the box flares wider at the
+    # bottom.
     blank = Image.new("RGBA", (W, H), (0, 0, 0, 0))
     full = [lw // 2, lw // 2, W - lw // 2, H - lw // 2]
 
@@ -357,11 +361,17 @@ def _bubble_master(b):
         [px0, py0 + int(DS * 0.9), px1, py1 + int(DS * 0.9)], radius=r_in, fill=(72, 60, 104, 85))
     out.alpha_composite(sh.filter(ImageFilter.GaussianBlur(DS * 0.8)))
 
-    # iridescent fill -- VERTICAL gradient mapped to the panel's own height so
-    # it survives 9-slice stretching (see _grad_v_stops).
-    strip = _grad_v_stops(W, py1 - py0, b.panel_stops).convert("RGBA")
+    # iridescent fill. The whole colour transition lives in the 9-slice
+    # STRETCH zone (between the caps); the cap zones are solid and equal to the
+    # gradient's end colours. That way KakaoTalk scales the gradient evenly over
+    # the middle of any-height bubble while the caps seamlessly continue the end
+    # colours -- so long messages get an evenly dispersed gradient, not a band.
+    mid0, mid1 = CAP * DS, H - CAP * DS
     pfill = Image.new("RGBA", (W, H), (0, 0, 0, 0))
-    pfill.paste(strip, (0, py0))
+    pd = ImageDraw.Draw(pfill)
+    pd.rectangle([0, py0, W, mid0], fill=b.panel_stops[0] + (255,))
+    pfill.paste(_grad_v_stops(W, mid1 - mid0, b.panel_stops).convert("RGBA"), (0, mid0))
+    pd.rectangle([0, mid1, W, py1], fill=b.panel_stops[-1] + (255,))
     out.paste(pfill, (0, 0), pmask)
 
     # glossy highlight across the top half of the panel (vertical fade)
@@ -402,14 +412,14 @@ def _overlay_widgets(img, scale, b):
     d = ImageDraw.Draw(img)
     # pixel butterfly, inset from the LEFT, vertically centred in the title bar
     draw_pixels(d, BUTTERFLY, pal_butterfly(b.wing, darken(b.wing, 0.62)),
-                12 * scale, 7 * scale, scale)
+                12 * scale, 5 * scale, scale)
     # minimize + close buttons, inset from the RIGHT, centred in the title bar
     edge = darken(b.border, 0.88)
     bfill = (255, 253, 255, 240)
     size = 7
     for i, kind in enumerate(("min", "close")):
         x = (71 + i * 10) * scale
-        y = 8 * scale
+        y = 6 * scale
         x1, y1 = x + size * scale, y + size * scale
         d.rectangle([x, y, x1, y1], fill=bfill, outline=edge, width=max(1, scale // 2))
         if kind == "min":
