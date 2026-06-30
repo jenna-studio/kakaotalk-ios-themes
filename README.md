@@ -11,10 +11,12 @@ are no binary art blobs to hand-edit.
 |-------|--------|------|
 | 🎀 **KittyTalk** | [`themes/kittytalk`](themes/kittytalk) | Minimal Sanrio × Apple — white, black outlines, red bows |
 | 🐰 **Pastel Bunny** | [`themes/pastel-bunny`](themes/pastel-bunny) | Soft pastel bunnies — pink sender / mint receiver bubbles |
+| 🦋 **Pixel Daydream** | [`themes/pixel-daydream`](themes/pixel-daydream) | Dreamy y2k pastel — pink→lavender→blue gradients, pixel butterflies/hearts, retro "chat window" bubbles |
 
 <p align="center">
   <img src="themes/kittytalk/preview/preview.png" width="320" alt="KittyTalk preview">
   <img src="themes/pastel-bunny/preview/preview.png" width="320" alt="Pastel Bunny preview">
+  <img src="themes/pixel-daydream/preview/preview.png" width="320" alt="Pixel Daydream preview">
 </p>
 
 ---

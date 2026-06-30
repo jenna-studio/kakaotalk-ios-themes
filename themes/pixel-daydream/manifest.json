@@ -1,0 +1,34 @@
+{
+  "name": "PixelDaydream",
+  "author": "Jenna Studio",
+  "version": "8.0.0",
+  "themeId": "com.kakao.talk.theme.pixeldaydreamios",
+  "platform": "ios",
+  "kakaotalkMinVersion": "8.0.0",
+  "description": "A dreamy y2k / kawaii pastel theme for KakaoTalk on iOS: pink -> lavender -> baby-blue gradients, pixel butterflies, hearts and sparkles, checkered pixel borders, and retro 'chat window' bubbles (pink received, periwinkle sent).",
+  "palette": {
+    "bgPink": "#F9D6EA",
+    "bgLavender": "#D7C6F2",
+    "bgBlue": "#C2E0F7",
+    "sentBorder": "#8CB4E6",
+    "sentTitle": "#B6D4F2",
+    "receiveBorder": "#EEA4C8",
+    "receiveTitle": "#F8C8DD",
+    "accentPink": "#F06AA0",
+    "muted": "#B3A0CC",
+    "text": "#6A5A7A",
+    "heartPurple": "#B79CEA",
+    "heartPink": "#F4A6CE",
+    "heartBlue": "#9CC8F2",
+    "heartGreen": "#A6E2B6"
+  },
+  "fonts": {
+    "note": "KakaoTalk renders in-app text in the system font; the .ktheme format has no font property, so the theme cannot replace the chat or passcode-keypad font. The pixel-styled numbers/letters in the reference art are decorative only; the theme controls keypad text color, not glyph shape."
+  },
+  "build": {
+    "generate": "python3 themes/pixel-daydream/scripts/generate_images.py",
+    "package": "./scripts/build.sh pixel-daydream",
+    "output": "dist/PixelDaydream.ktheme"
+  },
+  "note": "This manifest is source metadata only. A KakaoTalk .ktheme package contains KakaoTalkTheme.css + Images/ at the archive root; manifest.json is not included in the package."
+}
