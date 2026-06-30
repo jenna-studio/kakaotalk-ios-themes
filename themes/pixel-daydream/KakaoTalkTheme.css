@@ -112,10 +112,10 @@ InputBarStyle-Chat
 
 MessageCellStyle-Send
 {
-  -ios-background-image: 'chatroomBubbleSend01.png' 30px 30px;
-  -ios-selected-background-image: 'chatroomBubbleSend01Selected.png' 30px 30px;
-  -ios-group-background-image: 'chatroomBubbleSend02.png' 30px 30px;
-  -ios-group-selected-background-image: 'chatroomBubbleSend02Selected.png' 30px 30px;
+  -ios-background-image: 'chatroomBubbleSend01.png' 24px 24px;
+  -ios-selected-background-image: 'chatroomBubbleSend01Selected.png' 24px 24px;
+  -ios-group-background-image: 'chatroomBubbleSend02.png' 24px 24px;
+  -ios-group-selected-background-image: 'chatroomBubbleSend02Selected.png' 24px 24px;
   -ios-title-edgeinsets: 23px 16px 11px 16px;
   -ios-group-title-edgeinsets: 23px 16px 11px 16px;
   -ios-text-color: #45456E;
@@ -125,10 +125,10 @@ MessageCellStyle-Send
 
 MessageCellStyle-Receive
 {
-  -ios-background-image: 'chatroomBubbleReceive01.png' 30px 30px;
-  -ios-selected-background-image: 'chatroomBubbleReceive01Selected.png' 30px 30px;
-  -ios-group-background-image: 'chatroomBubbleReceive02.png' 30px 30px;
-  -ios-group-selected-background-image: 'chatroomBubbleReceive02Selected.png' 30px 30px;
+  -ios-background-image: 'chatroomBubbleReceive01.png' 24px 24px;
+  -ios-selected-background-image: 'chatroomBubbleReceive01Selected.png' 24px 24px;
+  -ios-group-background-image: 'chatroomBubbleReceive02.png' 24px 24px;
+  -ios-group-selected-background-image: 'chatroomBubbleReceive02Selected.png' 24px 24px;
   -ios-title-edgeinsets: 23px 16px 11px 16px;
   -ios-group-title-edgeinsets: 23px 16px 11px 16px;
   -ios-text-color: #6B4A60;

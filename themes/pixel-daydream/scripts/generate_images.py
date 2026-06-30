@@ -247,7 +247,10 @@ def pal_mono(c):
 # ===========================================================================
 DS = 12                       # draw units per 1x point (downscaled -> crisp)
 BUB_W, BUB_H = 100, 80        # 1x points
-CAP = 30                      # 9-slice cap (matches the CSS)
+CAP = 24                      # 9-slice cap (matches the CSS). Small enough that
+                              # even a 1-line bubble stays taller than 2*CAP, so
+                              # the cap never clamps and the TITLE BAR is exactly
+                              # the same size on every bubble regardless of text.
 
 
 def _grad_v(w, h, top, bot):
@@ -320,17 +323,19 @@ class Bub:
 
 # panel_stops are now a RADIAL ramp: centre -> edge. The edge equals the window
 # frame colour so the panel blends seamlessly into the frame.
-# received = pink window: white centre -> faint mint -> lilac -> pink frame edge
+# received = pink window: soft-pink centre -> pink -> deeper pink -> pink frame
+# (pink-dominant, with just a whisper of mint near the centre)
 RECV = Bub(border=(232, 146, 192), frame=(247, 199, 223),
            title_top=(250, 202, 225), title_bot=(238, 197, 227),
-           panel_stops=[(255, 252, 255), (233, 247, 241), (243, 229, 247), (247, 200, 223)],
+           panel_stops=[(255, 247, 251), (250, 226, 240), (249, 208, 228), (247, 199, 223)],
            div=(236, 158, 200), glow=(252, 206, 232, 150), wing=(132, 222, 214))
 
-# sent = periwinkle window: pale centre -> faint mint -> periwinkle -> blue edge
-# (blue blended through so it reads soft, not vibrant, and melts into the frame)
+# sent = periwinkle window: richer hologram -- white centre -> mint -> lavender
+# -> periwinkle -> blue frame edge (more colour, still soft and frame-seamless)
 SENT = Bub(border=(148, 166, 224), frame=(199, 213, 240),
            title_top=(201, 219, 245), title_bot=(204, 224, 234),
-           panel_stops=[(233, 233, 250), (215, 234, 238), (209, 217, 245), (199, 213, 240)],
+           panel_stops=[(240, 244, 250), (205, 238, 230), (214, 210, 246),
+                        (203, 216, 244), (199, 213, 240)],
            div=(158, 178, 226), glow=(200, 216, 246, 150), wing=(140, 224, 204))
 
 PANEL_ALPHA = 242             # frosted: lets a touch of background through
@@ -340,11 +345,11 @@ def _bubble_master(b):
     """Render the embossed, glossy hologram window at DS resolution."""
     W, H = BUB_W * DS, BUB_H * DS
     lw = max(2, int(1.6 * DS))
-    r_out = 16 * DS
+    r_out = 14 * DS
     title_h = 16 * DS
     margin = 6 * DS                  # frame thickness around the inset panel
-    r_in = 9 * DS
-    panel_gap = 3 * DS               # gap between title bar and the panel
+    r_in = 6 * DS
+    panel_gap = 1 * DS               # gap between title bar and the panel
     # NB: title_h + panel_gap + r_in (+border) must stay <= CAP so BOTH the
     # top AND bottom panel corners sit fully inside the 9-slice cap -- otherwise
     # tall bubbles stretch the top corners only and the box flares wider at the
@@ -425,17 +430,17 @@ def _bubble_master(b):
 
 def _overlay_widgets(img, scale, b):
     """Crisp pixel butterfly + minimize/close buttons, inset from the edges so
-    they sit safely inside the 30px corner cap and never get cropped."""
+    they sit safely inside the 24px corner cap and never get cropped."""
     d = ImageDraw.Draw(img)
     # pixel butterfly, inset from the LEFT, vertically centred in the title bar
     draw_pixels(d, BUTTERFLY, pal_butterfly(b.wing, darken(b.wing, 0.62)),
-                12 * scale, 5 * scale, scale)
+                11 * scale, 5 * scale, scale)
     # minimize + close buttons, inset from the RIGHT, centred in the title bar
     edge = darken(b.border, 0.88)
     bfill = (255, 253, 255, 240)
     size = 7
     for i, kind in enumerate(("min", "close")):
-        x = (71 + i * 10) * scale
+        x = (77 + i * 9) * scale
         y = 6 * scale
         x1, y1 = x + size * scale, y + size * scale
         d.rectangle([x, y, x1, y1], fill=bfill, outline=edge, width=max(1, scale // 2))
